@@ -9,13 +9,17 @@ public class TmdbEpisode {
     private final String date;
     private final String overview;
     private final String stillUrl;
+    private final double voteAverage;
+    private final int runtime;
 
-    public TmdbEpisode(int number, String title, String date, String overview, String stillUrl) {
+    public TmdbEpisode(int number, String title, String date, String overview, String stillUrl, double voteAverage, int runtime) {
         this.number = number;
         this.title = title;
         this.date = date;
         this.overview = overview;
         this.stillUrl = stillUrl;
+        this.voteAverage = voteAverage;
+        this.runtime = runtime;
     }
 
     public int getNumber() {
@@ -36,5 +40,13 @@ public class TmdbEpisode {
 
     public String getStillUrl() {
         return TextUtils.isEmpty(stillUrl) ? "" : stillUrl;
+    }
+
+    public double getVoteAverage() {
+        return voteAverage;
+    }
+
+    public int getRuntime() {
+        return runtime;
     }
 }

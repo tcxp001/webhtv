@@ -171,7 +171,9 @@ public class TmdbService {
                     string(object, "name"),
                     string(object, "air_date"),
                     string(object, "overview"),
-                    image(config.getBackdropBase(), string(object, "still_path"))
+                    image(config.getBackdropBase(), string(object, "still_path")),
+                    object.has("vote_average") && !object.get("vote_average").isJsonNull() ? object.get("vote_average").getAsDouble() : 0,
+                    object.has("runtime") && !object.get("runtime").isJsonNull() ? object.get("runtime").getAsInt() : 0
             ));
         }
         return items;

@@ -16,6 +16,7 @@ import com.fongmi.android.tv.utils.ImgUtil;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class TmdbEpisodeAdapter extends RecyclerView.Adapter<TmdbEpisodeAdapter.ViewHolder> {
@@ -104,16 +105,18 @@ public class TmdbEpisodeAdapter extends RecyclerView.Adapter<TmdbEpisodeAdapter.
         holder.binding.title.setTextColor(light ? 0xCC15202B : 0xE6FFFFFF);
         holder.binding.date.setTextColor(light ? 0x9915202B : 0x99FFFFFF);
         holder.binding.overview.setTextColor(light ? 0xB315202B : 0xCCFFFFFF);
+        holder.binding.badge.setText(episodeBadge(tmdbEpisode));
+        holder.binding.badge.setVisibility(TextUtils.isEmpty(holder.binding.badge.getText()) ? View.GONE : View.VISIBLE);
         TmdbCardFocusHelper.bind(
                 holder.binding.getRoot(),
                 activated ? (light ? 0xFFE5F7EC : 0x6630A86B) : (light ? 0xEEFFFFFF : 0xCC16202A),
                 activated ? activeStrokeColor : (light ? 0x33647480 : 0x33FFFFFF),
                 activated ? 2 : 1);
         if (tmdbEpisode != null && !TextUtils.isEmpty(tmdbEpisode.getStillUrl())) {
-            holder.binding.still.setVisibility(View.VISIBLE);
+            holder.binding.stillFrame.setVisibility(View.VISIBLE);
             ImgUtil.load(title, tmdbEpisode.getStillUrl(), holder.binding.still);
         } else {
-            holder.binding.still.setVisibility(View.GONE);
+            holder.binding.stillFrame.setVisibility(View.GONE);
         }
         holder.binding.getRoot().setOnClickListener(view -> listener.onItemClick(episode));
         holder.binding.getRoot().setOnLongClickListener(view -> {
@@ -131,6 +134,14 @@ public class TmdbEpisodeAdapter extends RecyclerView.Adapter<TmdbEpisodeAdapter.
 
     private int dp(View view, int value) {
         return Math.round(value * view.getResources().getDisplayMetrics().density);
+    }
+
+    private String episodeBadge(TmdbEpisode episode) {
+        if (episode == null) return "";
+        List<String> parts = new ArrayList<>();
+        if (episode.getVoteAverage() > 0) parts.add("★ " + String.format(Locale.US, "%.1f", episode.getVoteAverage()));
+        if (episode.getRuntime() > 0) parts.add(episode.getRuntime() + "m");
+        return TextUtils.join(" · ", parts);
     }
 
     @Override
