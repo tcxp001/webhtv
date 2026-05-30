@@ -69,12 +69,13 @@ public class HistoryPresenter extends Presenter {
     @Override
     public void onBindViewHolder(@NonNull Presenter.ViewHolder viewHolder, Object object) {
         History item = (History) object;
-        boolean same = item.getVodName().equals(item.getVodRemarks());
+        String remark = item.getDisplayVodRemarks();
+        boolean same = item.getVodName().equals(remark);
         ViewHolder holder = (ViewHolder) viewHolder;
         setClickListener(holder.view, item);
         holder.binding.name.setText(item.getVodName());
         holder.binding.site.setText(item.getSiteName());
-        holder.binding.remark.setText(item.getVodRemarks());
+        holder.binding.remark.setText(remark);
         holder.binding.site.setVisibility(item.getSiteVisible());
         holder.binding.delete.setVisibility(!delete ? View.GONE : View.VISIBLE);
         holder.binding.remark.setVisibility(delete || same ? View.GONE : View.VISIBLE);

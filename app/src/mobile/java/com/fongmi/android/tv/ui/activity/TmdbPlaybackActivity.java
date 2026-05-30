@@ -99,7 +99,7 @@ public class TmdbPlaybackActivity extends VideoActivity implements TmdbPlaybackE
     protected String getHistoryEpisodeName(Episode item) {
         if (item.getNumber() <= 0) return super.getHistoryEpisodeName(item);
         String title = getEpisodeTitles().get(item.getNumber());
-        if (TextUtils.isEmpty(title)) return super.getHistoryEpisodeName(item);
+        if (TextUtils.isEmpty(title)) return String.valueOf(item.getNumber());
         return item.getNumber() + ". " + title;
     }
 

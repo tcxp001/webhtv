@@ -144,6 +144,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private boolean overviewExpanded;
     private boolean useParse;
     private boolean inlineStarted;
+    private boolean detailPlayerActive;
     private boolean autoPlayed;
     private boolean inlineFullscreen;
     private GestureDetector inlineGestureDetector;
@@ -259,6 +260,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         selectedFlag = null;
         selectedEpisode = null;
         inlineStarted = false;
+        detailPlayerActive = false;
         autoPlayed = false;
         pendingInlineResult = null;
         currentInlineResult = null;
@@ -362,7 +364,6 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void initFusionPlayer() {
-        if (!isFusionMode()) return;
         inlineControlController = new VodPlayerControlController(new VodPlayerControlController.Host() {
             @Override
             public com.fongmi.android.tv.player.PlayerManager player() {
@@ -502,7 +503,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void onInlinePanelConfirm() {
-        if (!isFusionMode()) return;
+        if (!isInlinePlayerMode()) return;
         if (!inlineStarted) {
             onPlay();
         } else if (!inlineFullscreen) {
@@ -559,7 +560,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.episodeEmpty.setTextColor(colors.secondary);
         binding.tmdbStatus.setTextColor(colors.secondary);
         binding.themeMode.setText(themeModeLabel());
-        if (isFusionMode()) {
+        if (isInlinePlayerMode()) {
             binding.playerError.setTextColor(0xFFFFFFFF);
             binding.playerTitle.setTextColor(0xFFFFFFFF);
             tintInlineControl(binding.playerControls);
@@ -595,7 +596,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void setPlayerCard(ThemeColors colors) {
-        if (!isFusionMode()) return;
+        if (!isInlinePlayerMode()) return;
         binding.playerPanel.setCardBackgroundColor(0xFF000000);
         binding.playerPanel.setRadius(inlineFullscreen ? 0 : ResUtil.dp2px(20));
         updatePlayerPanelFocus(colors);
@@ -606,7 +607,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void updatePlayerPanelFocus(ThemeColors colors) {
-        if (!isFusionMode()) return;
+        if (!isInlinePlayerMode()) return;
         if (inlineFullscreen) {
             binding.playerPanel.setStrokeColor(0x00000000);
             binding.playerPanel.setStrokeWidth(0);
@@ -1145,6 +1146,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         renderSeasonSelection();
         List<Episode> visibleEpisodes = visibleEpisodes(episodes);
         bindSeasonEpisodes();
+        refreshCurrentHistoryEpisodeTitle();
         Map<Episode, Integer> episodeNumbers = episodeNumbers(visibleEpisodes, episodes);
         List<Episode> displayEpisodes = new ArrayList<>(visibleEpisodes);
         if (episodeReverse) Collections.reverse(displayEpisodes);
@@ -1386,10 +1388,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         if (vod == null) return;
         persistSelection();
         if (isFusionMode()) playInline();
-        else {
-            Vod tmdbVod = playbackTmdbVod();
-            TmdbPlaybackActivity.start(this, getKeyText(), getIdText(), playbackHistoryName(), playbackHistoryPic(), selectedEpisode != null ? historyEpisodeTitle(selectedEpisode) : getMarkText(), selectedTmdbEpisodeTitles(), playbackTmdbItem(), tmdbVod);
-        }
+        else playDetailFullscreen();
     }
 
     private void setTopMargin(View view, int dp) {
@@ -1721,11 +1720,37 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private String historyEpisodeTitle(Episode episode) {
         int number = episodeNumberForHistory(episode);
-        TmdbEpisode tmdbEpisode = number <= 0 ? null : tmdbEpisodes.get(number);
-        String label = number > 0 ? number + "." : episode.getDisplayName();
-        String title = tmdbEpisode == null ? "" : tmdbEpisode.getTitle();
+        String label = number > 0 ? String.valueOf(number) : episode.getDisplayName();
+        String title = tmdbEpisodeTitle(number);
         if (TextUtils.isEmpty(title) || title.equals(label) || title.equals(episode.getName())) return label;
-        return label + " " + title;
+        return label + ". " + title;
+    }
+
+    private String tmdbEpisodeTitle(int number) {
+        if (number <= 0) return "";
+        TmdbEpisode tmdbEpisode = tmdbEpisodes.get(number);
+        if (tmdbEpisode != null && !TextUtils.isEmpty(tmdbEpisode.getTitle())) return tmdbEpisode.getTitle();
+        List<TmdbEpisode> episodes = tmdbSeasonEpisodes.get(selectedSeasonNumber);
+        if (episodes == null) return "";
+        for (TmdbEpisode episode : episodes) {
+            if (episode.getNumber() == number && !TextUtils.isEmpty(episode.getTitle())) return episode.getTitle();
+        }
+        return "";
+    }
+
+    private void refreshCurrentHistoryEpisodeTitle() {
+        if (selectedEpisode == null || history == null || Setting.isIncognito()) return;
+        History saved = History.find(getHistoryKey());
+        if (saved == null || !isHistoryEpisode(selectedEpisode, saved)) return;
+        String title = historyEpisodeTitle(selectedEpisode);
+        if (TextUtils.isEmpty(title) || title.equals(saved.getVodRemarks())) return;
+        saved.setVodName(playbackHistoryName());
+        saved.setVodPic(playbackHistoryPic());
+        saved.setVodRemarks(title);
+        saved.setEpisodeUrl(selectedEpisode.getUrl());
+        saved.save();
+        history = saved;
+        RefreshEvent.history();
     }
 
     private int episodeNumberForHistory(Episode episode) {
@@ -1747,10 +1772,26 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         return getIntent().getBooleanExtra("fusion", false);
     }
 
+    private boolean isInlinePlayerMode() {
+        return isFusionMode() || detailPlayerActive;
+    }
+
     private void maybeAutoPlayInline() {
         if (!isFusionMode() || autoPlayed) return;
         autoPlayed = true;
         binding.playerPanel.post(this::onPlay);
+    }
+
+    private void playDetailFullscreen() {
+        if (selectedFlag == null || selectedEpisode == null) return;
+        detailPlayerActive = true;
+        binding.playerError.setTextColor(0xFFFFFFFF);
+        binding.playerTitle.setTextColor(0xFFFFFFFF);
+        tintInlineControl(binding.playerControls);
+        setPlayerCard(lightTheme ? ThemeColors.light() : ThemeColors.dark());
+        binding.playerPanel.setVisibility(View.VISIBLE);
+        enterInlineFullscreen();
+        playInline();
     }
 
     private void playInline() {
@@ -1801,7 +1842,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void toggleInlinePlayback() {
-        if (!isFusionMode()) return;
+        if (!isInlinePlayerMode()) return;
         if (controller() == null || service() == null || player().isEmpty()) {
             onPlay();
             return;
@@ -1812,7 +1853,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void toggleInlineControls() {
-        if (!isFusionMode() || !inlineStarted) return;
+        if (!isInlinePlayerMode() || !inlineStarted) return;
         if (binding.playerControls.getVisibility() == View.VISIBLE) hideInlineControls();
         else showInlineControls(true, false);
     }
@@ -1822,7 +1863,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void showInlineControls(boolean show, boolean focus) {
-        if (!isFusionMode() || !inlineStarted) return;
+        if (!isInlinePlayerMode() || !inlineStarted) return;
         if (!show) {
             hideInlineControls();
             return;
@@ -1884,7 +1925,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void updateInlineButtons(boolean playing) {
-        if (!isFusionMode() || inlineControlController == null) return;
+        if (!isInlinePlayerMode() || inlineControlController == null) return;
         binding.playerToggle.setText(playing ? R.string.pause : R.string.play);
         binding.playerSpeed.setText(service() == null || player().isEmpty() ? getString(R.string.play_speed) : player().getSpeedText());
         binding.playerDecode.setText(service() == null ? getString(R.string.play_decode) : player().getDecodeText());
@@ -1963,7 +2004,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void updateInlineTitle() {
-        if (!isFusionMode()) return;
+        if (!isInlinePlayerMode()) return;
         String title = vod != null ? vod.getName() : getNameText();
         String episode = selectedEpisode != null ? selectedEpisode.getName() : "";
         binding.playerTitle.setText(TextUtils.isEmpty(episode) || episode.equals(title) ? title : title + "  " + episode);
@@ -2150,15 +2191,18 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.playerPanel.setRadius(0);
         updatePlayerPanelFocus();
         setInlineFullscreenIcon();
-        updateInlineButtons(player().isPlaying());
+        boolean playing = service() != null && !player().isEmpty() && player().isPlaying();
+        updateInlineButtons(playing);
         hideInlineControls();
         binding.playerPanel.requestFocus();
         Util.toggleFullscreen(this, true);
-        setRequestedOrientation(player().isPortrait() ? ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT : ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+        boolean portrait = service() != null && !player().isEmpty() && player().isPortrait();
+        setRequestedOrientation(portrait ? ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT : ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
     }
 
     private void exitInlineFullscreen() {
         if (!inlineFullscreen) return;
+        boolean closeDetailPlayer = detailPlayerActive && !isFusionMode();
         inlineFullscreen = false;
         ((ViewGroup) binding.playerPanel.getParent()).removeView(binding.playerPanel);
         if (playerParent != null && playerLayoutParams != null) {
@@ -2167,15 +2211,35 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         }
         binding.playerPanel.setTranslationZ(0f);
         setPlayerCard(lightTheme ? ThemeColors.light() : ThemeColors.dark());
-        focusInlinePlayerPanel();
         setInlineFullscreenIcon();
-        updateInlineButtons(player().isPlaying());
+        boolean playing = service() != null && !player().isEmpty() && player().isPlaying();
+        updateInlineButtons(playing);
         Util.toggleFullscreen(this, false);
         setRequestedOrientation(requestedOrientation);
+        if (closeDetailPlayer) closeDetailFullscreenPlayer();
+        else focusInlinePlayerPanel();
         playerParent = null;
         playerLayoutParams = null;
         playerIndex = -1;
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
+    }
+
+    private void closeDetailFullscreenPlayer() {
+        saveInlineHistory();
+        hideInlineControls();
+        if (service() != null) {
+            player().stop();
+            player().clear();
+        }
+        binding.playerProgress.setVisibility(View.GONE);
+        binding.playerError.setVisibility(View.GONE);
+        binding.playerPanel.setVisibility(View.GONE);
+        inlineStarted = false;
+        detailPlayerActive = false;
+        pendingInlineResult = null;
+        currentInlineResult = null;
+        useParse = false;
+        updatePlayLabel();
     }
 
     private void playAdjacentEpisode(int direction) {
@@ -2207,7 +2271,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private boolean handleInlineKey(KeyEvent event) {
-        if (!isFusionMode() || !inlineStarted) return false;
+        if (!isInlinePlayerMode() || !inlineStarted) return false;
         if (KeyUtil.isEnterKey(event) && inlineWakeControlsByKey) {
             if (KeyUtil.isActionUp(event)) {
                 inlineWakeControlsByKey = false;
@@ -2250,9 +2314,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     @Override
     protected void onServiceConnected() {
-        if (isFusionMode()) {
+        if (inlineControlController != null) {
             player().setDanmakuController(binding.exo.getDanmakuController());
-            if (inlineControlController != null) inlineControlController.applyDanmakuSetting();
+            inlineControlController.applyDanmakuSetting();
         }
         if (pendingInlineResult != null) startInlinePlayer(pendingInlineResult);
     }
@@ -2269,7 +2333,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     @Override
     protected void onStateChanged(int state) {
-        if (!isFusionMode()) return;
+        if (!isInlinePlayerMode()) return;
         if (state == Player.STATE_BUFFERING) binding.playerProgress.setVisibility(View.VISIBLE);
         if (state == Player.STATE_READY) {
             binding.playerProgress.setVisibility(View.GONE);
@@ -2318,7 +2382,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void saveInlineHistory() {
-        if (!isFusionMode() || history == null || service() == null || player() == null) return;
+        if (!isInlinePlayerMode() || history == null || service() == null || player() == null) return;
         if (!player().isEmpty()) {
             history.setCreateTime(System.currentTimeMillis());
             history.setPosition(player().getPosition());
@@ -2336,7 +2400,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     @Override
     public void onTimeChanged(long time) {
-        if (!isFusionMode() || !isOwner() || history == null || service() == null || player() == null || player().isEmpty()) return;
+        if (!isInlinePlayerMode() || !isOwner() || history == null || service() == null || player() == null || player().isEmpty()) return;
         history.setCreateTime(time);
         history.setPosition(player().getPosition());
         history.setDuration(player().getDuration());

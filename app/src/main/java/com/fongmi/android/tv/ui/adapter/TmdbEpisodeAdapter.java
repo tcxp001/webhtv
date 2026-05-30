@@ -184,10 +184,10 @@ public class TmdbEpisodeAdapter extends RecyclerView.Adapter<TmdbEpisodeAdapter.
     }
 
     private String episodeTitle(Episode episode, int number, String tmdbTitle) {
-        String label = number > 0 ? number + "." : episode.getName();
+        String label = number > 0 ? String.valueOf(number) : episode.getName();
         if (TextUtils.isEmpty(tmdbTitle)) return label;
         if (label.equals(tmdbTitle) || episode.getName().equals(tmdbTitle)) return label;
-        return label + " " + tmdbTitle;
+        return label + ". " + tmdbTitle;
     }
 
     private int episodeNumber(Episode episode, int position) {
