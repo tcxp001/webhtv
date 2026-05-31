@@ -88,6 +88,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.target.CustomTarget;
 import com.bumptech.glide.request.transition.Transition;
+import com.github.catvod.crawler.SpiderDebug;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -108,6 +109,8 @@ import java.util.Set;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.Listener, Clock.Callback {
 
@@ -689,9 +692,16 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             }
             try {
                 TmdbLoadResult result = tmdbFuture.get();
+                if (result != null && result.bundle() == null && finalVod != null) {
+                    logTmdbMatch("基础匹配未命中，使用站源详情继续消歧：片名=%s，年份=%s，演员=%s，导演=%s，简介长度=%d",
+                            finalVod.getName(), finalVod.getYear(), finalVod.getActor(), finalVod.getDirector(), finalVod.getContent().length());
+                    TmdbBundle bundle = chooseTmdbBundle(result.searchItems(), getNameText(), finalVod);
+                    if (bundle != null) result = new TmdbLoadResult(bundle, result.searchItems());
+                }
+                TmdbLoadResult finalResult = result;
                 runOnAliveUi(() -> {
                     if (generation != loadGeneration || vod == null) return;
-                    applyTmdbResult(result);
+                    applyTmdbResult(finalResult);
                 });
             } catch (Throwable ignored) {
             }
@@ -751,7 +761,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
                 }
                 if (match == null) {
                     searchItems = tmdbService.search(getNameText(), tmdbConfig);
-                    match = chooseTmdbMatch(searchItems, getNameText());
+                    logTmdbMatch("搜索完成：关键词=%s，返回数量=%d", getNameText(), searchItems.size());
+                    match = chooseTmdbMatch(searchItems, getNameText(), null);
                 }
                 if (match != null && tmdbBundle == null) tmdbBundle = loadTmdbBundle(match);
             }
@@ -2707,21 +2718,212 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         return 0;
     }
 
-    private TmdbItem chooseTmdbMatch(List<TmdbItem> items, String keyword) {
-        if (items == null || items.isEmpty()) return null;
+    private TmdbItem chooseTmdbMatch(List<TmdbItem> items, String keyword, @Nullable Vod sourceVod) {
+        // 自动匹配必须保持保守：这里只允许“标题归一化后完全一致”的候选进入评分。
+        // 如果站源详情或搜索词里能提取到年份，候选的 TMDB 年份也必须完全同年。
+        // 演员、导演、简介里的主创信息只用于同名候选之间消歧，不允许用来放宽标题或年份规则。
+        logTmdbMatch("开始自动匹配：关键词=%s，归一化=%s，站源年份=%d，是否有站源详情=%s，候选原始数量=%d",
+                keyword, normalize(keyword), sourceYear(keyword, sourceVod), sourceVod != null, items == null ? 0 : items.size());
+        List<TmdbCandidate> candidates = scoreTmdbCandidates(items, keyword, sourceVod);
+        if (candidates.isEmpty()) {
+            logTmdbMatch("自动匹配结束：没有严格标题/年份一致的候选，交给手动选择");
+            return null;
+        }
+        if (candidates.size() == 1 && candidates.get(0).titleScore >= 210) {
+            logTmdbMatch("自动匹配成功：只有一个严格候选，标题=%s，年份=%d，评分=%d",
+                    candidates.get(0).item.getTitle(), tmdbItemYear(candidates.get(0).item), candidates.get(0).score);
+            return candidates.get(0).item;
+        }
+        TmdbCandidate best = candidates.get(0);
+        TmdbCandidate second = candidates.size() > 1 ? candidates.get(1) : null;
+        int gap = second == null ? best.score : best.score - second.score;
+        boolean accepted = best.score >= 360 && gap >= 50;
+        logTmdbMatch("自动匹配判定：最佳=%s(%d年, 分=%d)，第二=%s，分差=%d，结果=%s",
+                best.item.getTitle(), tmdbItemYear(best.item), best.score, second == null ? "无" : second.item.getTitle() + "(" + second.score + ")", gap, accepted ? "通过" : "不通过");
+        return accepted ? best.item : null;
+    }
+
+    private TmdbBundle chooseTmdbBundle(List<TmdbItem> items, String keyword, Vod sourceVod) {
+        // 走到这里说明仅靠搜索结果列表还不能稳定选出一个条目。
+        // 此时只会对前几个“标题一致、年份一致”的候选拉取 TMDB 详情，
+        // 再用站源演员、导演、简介中出现的完整姓名去命中 TMDB 演员/主创。
+        // 这样可以解决同名剧缺少年份时的自动消歧，同时避免把《最佳女主角》误匹配成《主角》。
+        logTmdbMatch("进入详情消歧：关键词=%s，站源演员=%s，站源导演=%s", keyword, sourceVod.getActor(), sourceVod.getDirector());
+        List<TmdbCandidate> candidates = scoreTmdbCandidates(items, keyword, sourceVod);
+        if (candidates.isEmpty()) {
+            logTmdbMatch("详情消歧结束：没有可消歧候选");
+            return null;
+        }
+        TmdbItem quick = chooseTmdbMatch(items, keyword, sourceVod);
+        if (quick != null) {
+            try {
+                logTmdbMatch("详情消歧跳过：基础规则已经可确定，直接加载=%s(%d)", quick.getTitle(), tmdbItemYear(quick));
+                return loadTmdbBundle(quick);
+            } catch (Throwable ignored) {
+                logTmdbMatch("详情消歧加载失败：标题=%s，错误=%s", quick.getTitle(), ignored.getMessage());
+            }
+        }
+        if (!hasSourcePeople(sourceVod)) {
+            logTmdbMatch("详情消歧结束：站源没有演员/导演/简介，无法继续自动消歧");
+            return null;
+        }
+        TmdbCandidate best = null;
+        TmdbCandidate second = null;
+        int count = Math.min(6, candidates.size());
+        logTmdbMatch("详情消歧开始拉取候选详情：候选数量=%d，拉取上限=%d", candidates.size(), count);
+        for (int i = 0; i < count; i++) {
+            TmdbCandidate candidate = candidates.get(i);
+            try {
+                TmdbBundle bundle = loadTmdbBundle(candidate.item);
+                int peopleScore = scoreTmdbPeople(bundle.detail(), sourceVod);
+                int score = candidate.score + peopleScore;
+                logTmdbMatch("详情消歧候选：标题=%s，年份=%d，基础分=%d，演员主创分=%d，总分=%d",
+                        candidate.item.getTitle(), tmdbItemYear(candidate.item), candidate.score, peopleScore, score);
+                TmdbCandidate scored = new TmdbCandidate(candidate.item, candidate.titleScore, score, bundle);
+                if (best == null || scored.score > best.score) {
+                    second = best;
+                    best = scored;
+                } else if (second == null || scored.score > second.score) {
+                    second = scored;
+                }
+            } catch (Throwable ignored) {
+                logTmdbMatch("详情消歧候选加载失败：标题=%s，错误=%s", candidate.item.getTitle(), ignored.getMessage());
+            }
+        }
+        if (best == null || best.bundle == null) {
+            logTmdbMatch("详情消歧结束：没有成功加载的候选详情");
+            return null;
+        }
+        int gap = second == null ? best.score : best.score - second.score;
+        boolean accepted = best.score >= 420 && gap >= 50;
+        logTmdbMatch("详情消歧判定：最佳=%s(%d年, 分=%d)，第二=%s，分差=%d，结果=%s",
+                best.item.getTitle(), tmdbItemYear(best.item), best.score, second == null ? "无" : second.item.getTitle() + "(" + second.score + ")", gap, accepted ? "通过" : "不通过");
+        return accepted ? best.bundle : null;
+    }
+
+    private List<TmdbCandidate> scoreTmdbCandidates(List<TmdbItem> items, String keyword, @Nullable Vod sourceVod) {
+        List<TmdbCandidate> candidates = new ArrayList<>();
+        if (items == null || items.isEmpty()) return candidates;
         String normalized = normalize(keyword);
-        List<TmdbItem> exact = new ArrayList<>();
+        int sourceYear = sourceYear(keyword, sourceVod);
         for (TmdbItem item : items) {
-            if (normalize(item.getTitle()).equals(normalized)) exact.add(item);
+            // 第一层过滤只看标题是否完全一致，不做 contains、相似度、首尾包含等近似判断。
+            int titleScore = scoreTmdbTitle(item, normalized);
+            if (titleScore <= 0) {
+                logTmdbMatch("候选过滤：标题不一致，关键词=%s，候选=%s，候选年份=%d", keyword, item.getTitle(), tmdbItemYear(item));
+                continue;
+            }
+            // 第二层过滤看年份：只要站源侧有年份，TMDB 侧必须同年，差一年也不自动匹配。
+            if (sourceYear > 0 && tmdbItemYear(item) != sourceYear) {
+                logTmdbMatch("候选过滤：年份不一致，关键词=%s，候选=%s，站源年份=%d，TMDB年份=%d", keyword, item.getTitle(), sourceYear, tmdbItemYear(item));
+                continue;
+            }
+            int yearScore = scoreTmdbYear(item, sourceYear);
+            int typeScore = scoreTmdbMediaType(item, sourceVod);
+            int creditScore = scoreTmdbPeople(item, sourceVod);
+            int score = titleScore + yearScore + typeScore + creditScore;
+            logTmdbMatch("候选保留：标题=%s，媒体=%s，年份=%d，标题分=%d，年份分=%d，类型分=%d，已有职员分=%d，总分=%d",
+                    item.getTitle(), item.getMediaType(), tmdbItemYear(item), titleScore, yearScore, typeScore, creditScore, score);
+            candidates.add(new TmdbCandidate(item, titleScore, score, null));
         }
-        if (exact.size() == 1) return exact.get(0);
-        if (exact.size() > 1) return null;
-        List<TmdbItem> fuzzy = new ArrayList<>();
-        for (TmdbItem item : items) {
-            String title = normalize(item.getTitle());
-            if (!TextUtils.isEmpty(title) && (title.contains(normalized) || normalized.contains(title))) fuzzy.add(item);
+        candidates.sort((a, b) -> Integer.compare(b.score, a.score));
+        return candidates;
+    }
+
+    private int scoreTmdbTitle(TmdbItem item, String normalizedKeyword) {
+        // 标题分只给完全一致的结果。这里故意不支持“候选包含关键词”，防止短标题误吸附长标题。
+        String title = normalize(item.getTitle());
+        if (TextUtils.isEmpty(title) || TextUtils.isEmpty(normalizedKeyword)) return 0;
+        if (title.equals(normalizedKeyword)) return 300;
+        return 0;
+    }
+
+    private int scoreTmdbYear(TmdbItem item, int sourceYear) {
+        // 年份只允许同年加分；不同年已经在候选过滤阶段剔除，不做近似年份匹配。
+        if (sourceYear <= 0) return 0;
+        return tmdbItemYear(item) == sourceYear ? 120 : 0;
+    }
+
+    private int tmdbItemYear(TmdbItem item) {
+        // 搜索结果里的年份通常在副标题中，例如“剧集 · 2026-05-10 · 评分 9.2”。
+        // 如果副标题没有年份，再从标题兜底提取，兼容站源或接口返回的特殊格式。
+        int year = firstYear(item.getSubtitle());
+        return year > 0 ? year : firstYear(item.getTitle());
+    }
+
+    private int scoreTmdbMediaType(TmdbItem item, @Nullable Vod sourceVod) {
+        // 类型只做轻量加减分，不作为放宽条件：标题/年份不一致的候选不会走到这里。
+        if (sourceVod == null) return 0;
+        String type = normalize(sourceVod.getTypeName() + " " + sourceVod.getRemarks());
+        if (TextUtils.isEmpty(type)) return 0;
+        boolean tv = type.contains("剧") || type.contains("集") || type.contains("连续") || type.contains("电视剧");
+        boolean movie = type.contains("电影") || type.contains("影片");
+        if (tv && "tv".equalsIgnoreCase(item.getMediaType())) return 20;
+        if (movie && "movie".equalsIgnoreCase(item.getMediaType())) return 20;
+        if ((tv && "movie".equalsIgnoreCase(item.getMediaType())) || (movie && "tv".equalsIgnoreCase(item.getMediaType()))) return -30;
+        return 0;
+    }
+
+    private int scoreTmdbPeople(TmdbItem item, @Nullable Vod sourceVod) {
+        // 部分入口会带有 credit 信息，此处只做低权重加分；主要的演员/主创消歧在详情拉取后完成。
+        if (sourceVod == null) return 0;
+        String text = normalize(sourceVod.getActor() + " " + sourceVod.getDirector() + " " + sourceVod.getContent());
+        String credit = normalize(item.getCredit());
+        if (TextUtils.isEmpty(text) || TextUtils.isEmpty(credit)) return 0;
+        return text.contains(credit) || credit.contains(text) ? 80 : 0;
+    }
+
+    private int scoreTmdbPeople(JsonObject detail, Vod sourceVod) {
+        // 用 TMDB 详情里的演员和主创完整姓名，去站源演员、导演、简介中查找。
+        // 命中越多，说明同名候选越可能是同一部作品；但它只负责同名候选排序，不负责扩大候选范围。
+        String source = normalize(sourceVod.getActor() + " " + sourceVod.getDirector() + " " + sourceVod.getContent());
+        if (TextUtils.isEmpty(source)) return 0;
+        int score = 0;
+        int hits = 0;
+        for (TmdbPerson person : tmdbService.cast(detail, tmdbConfig)) {
+            if (hits >= 3) break;
+            String name = normalize(person.getName());
+            if (name.length() < 2 || !source.contains(name)) continue;
+            logTmdbMatch("演员命中：%s，角色/说明=%s，加分=80", person.getName(), person.getSubtitle());
+            score += 80;
+            hits++;
         }
-        return fuzzy.size() == 1 ? fuzzy.get(0) : null;
+        for (TmdbPerson person : tmdbService.creators(detail, tmdbConfig)) {
+            if (hits >= 4) break;
+            String name = normalize(person.getName());
+            if (name.length() < 2 || !source.contains(name)) continue;
+            logTmdbMatch("主创命中：%s，职位=%s，加分=70", person.getName(), person.getSubtitle());
+            score += 70;
+            hits++;
+        }
+        return score;
+    }
+
+    private boolean hasSourcePeople(@Nullable Vod sourceVod) {
+        // 没有演员、导演、简介时，无法做可靠的人名消歧，继续弹出手动选择更稳妥。
+        if (sourceVod == null) return false;
+        return !TextUtils.isEmpty(sourceVod.getActor()) || !TextUtils.isEmpty(sourceVod.getDirector()) || !TextUtils.isEmpty(sourceVod.getContent());
+    }
+
+    private int sourceYear(String keyword, @Nullable Vod sourceVod) {
+        // 年份优先取站源详情字段；如果站源没有年份，再从标题或搜索词里提取。
+        // 这样网盘/站源标题里带“2026”的情况，也能参与严格同年判断。
+        int year = sourceVod == null ? 0 : firstYear(sourceVod.getYear());
+        return year > 0 ? year : firstYear(keyword);
+    }
+
+    private int firstYear(String text) {
+        // 只识别 1900-2099 的四位年份，避免把集数、清晰度、评分等数字误当年份。
+        Matcher matcher = Pattern.compile("(19\\d{2}|20\\d{2})").matcher(Objects.toString(text, ""));
+        while (matcher.find()) {
+            int year = Integer.parseInt(matcher.group(1));
+            if (year >= 1900 && year <= 2099) return year;
+        }
+        return 0;
+    }
+
+    private void logTmdbMatch(String format, Object... args) {
+        SpiderDebug.log("tmdb-match", format, args);
     }
 
     private int firstSeasonNumber(JsonObject detail) {
@@ -3081,6 +3283,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private record SourceMatch(Site site, Vod vod, int score) {
+    }
+
+    private record TmdbCandidate(TmdbItem item, int titleScore, int score, @Nullable TmdbBundle bundle) {
     }
 
     private record ThemeColors(int background, int panel, int control, int chip, int chipActive, int line, int lineStrong, int primary, int secondary, int muted, int body, int accent, int play, int backdropShade) {
