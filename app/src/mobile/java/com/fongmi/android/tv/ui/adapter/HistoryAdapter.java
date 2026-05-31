@@ -31,6 +31,8 @@ public class HistoryAdapter extends BaseDiffAdapter<History, HistoryAdapter.View
         void onItemDelete(History item);
 
         boolean onLongClick();
+
+        boolean onItemLongClick(History item);
     }
 
     public void setSize(int[] size) {
@@ -82,7 +84,7 @@ public class HistoryAdapter extends BaseDiffAdapter<History, HistoryAdapter.View
     }
 
     private void setClickListener(View root, History item) {
-        root.setOnLongClickListener(view -> listener.onLongClick());
+        root.setOnLongClickListener(view -> isDelete() ? listener.onLongClick() : listener.onItemLongClick(item));
         root.setOnClickListener(view -> {
             if (isDelete()) listener.onItemDelete(item);
             else listener.onItemClick(item);

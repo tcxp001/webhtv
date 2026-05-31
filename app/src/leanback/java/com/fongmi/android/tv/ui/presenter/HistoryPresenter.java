@@ -32,6 +32,8 @@ public class HistoryPresenter extends Presenter {
         void onItemDelete(History item);
 
         boolean onLongClick();
+
+        boolean onItemLongClick(History item);
     }
 
     private void setLayoutSize() {
@@ -50,7 +52,7 @@ public class HistoryPresenter extends Presenter {
     }
 
     private void setClickListener(View root, History item) {
-        root.setOnLongClickListener(view -> listener.onLongClick());
+        root.setOnLongClickListener(view -> isDelete() ? listener.onLongClick() : listener.onItemLongClick(item));
         root.setOnClickListener(view -> {
             if (isDelete()) listener.onItemDelete(item);
             else listener.onItemClick(item);

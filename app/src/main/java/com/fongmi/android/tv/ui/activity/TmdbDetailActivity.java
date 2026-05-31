@@ -178,20 +178,25 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     public static void start(Activity activity, String key, String id, String name, String pic, String mark, @Nullable TmdbItem tmdbItem) {
-        start(activity, key, id, name, pic, mark, tmdbItem, false);
+        start(activity, key, id, name, pic, mark, tmdbItem, false, false);
     }
 
     public static void startFusion(Activity activity, String key, String id, String name, String pic, String mark) {
-        start(activity, key, id, name, pic, mark, null, true);
+        start(activity, key, id, name, pic, mark, null, true, false);
     }
 
     public static void startFusion(Activity activity, String key, String id, String name, String pic, String mark, @Nullable TmdbItem tmdbItem) {
-        start(activity, key, id, name, pic, mark, tmdbItem, true);
+        start(activity, key, id, name, pic, mark, tmdbItem, true, false);
     }
 
-    private static void start(Activity activity, String key, String id, String name, String pic, String mark, @Nullable TmdbItem tmdbItem, boolean fusion) {
+    public static void startPlayback(Activity activity, String key, String id, String name, String pic, String mark, boolean fusion) {
+        start(activity, key, id, name, pic, mark, null, fusion, true);
+    }
+
+    private static void start(Activity activity, String key, String id, String name, String pic, String mark, @Nullable TmdbItem tmdbItem, boolean fusion, boolean autoPlay) {
         Intent intent = new Intent(activity, TmdbDetailActivity.class);
         intent.putExtra("fusion", fusion);
+        intent.putExtra("auto_play", autoPlay);
         intent.putExtra("key", key);
         intent.putExtra("id", id);
         intent.putExtra("name", name);
@@ -1788,12 +1793,16 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         return getIntent().getBooleanExtra("fusion", false);
     }
 
+    private boolean isAutoPlayMode() {
+        return getIntent().getBooleanExtra("auto_play", false);
+    }
+
     private boolean isInlinePlayerMode() {
         return isFusionMode() || detailPlayerActive;
     }
 
     private void maybeAutoPlayInline() {
-        if (!isFusionMode() || autoPlayed) return;
+        if ((!isFusionMode() && !isAutoPlayMode()) || autoPlayed) return;
         autoPlayed = true;
         binding.playerPanel.post(this::onPlay);
     }
