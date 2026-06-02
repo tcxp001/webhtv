@@ -26,8 +26,6 @@ public class HistoryAdapter extends BaseDiffAdapter<History, HistoryAdapter.View
     public interface OnClickListener {
 
         void onItemClick(History item);
-
-        boolean onItemLongClick(History item);
     }
 
     private void setLayoutSize() {
@@ -39,7 +37,6 @@ public class HistoryAdapter extends BaseDiffAdapter<History, HistoryAdapter.View
 
     private void setClickListener(View root, History item) {
         root.setOnClickListener(view -> listener.onItemClick(item));
-        root.setOnLongClickListener(view -> listener.onItemLongClick(item));
     }
 
     @NonNull

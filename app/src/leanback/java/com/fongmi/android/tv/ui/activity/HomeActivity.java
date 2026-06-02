@@ -512,12 +512,6 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     }
 
     @Override
-    public boolean onItemLongClick(History item) {
-        TmdbDetailActivity.start(this, item.getSiteKey(), item.getVodId(), item.getVodName(), item.getVodPic(), item.getVodRemarks());
-        return true;
-    }
-
-    @Override
     public void showDialog() {
         SiteDialog.create().show(this);
     }

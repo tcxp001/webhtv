@@ -63,9 +63,4 @@ public class HistoryActivity extends BaseActivity implements HistoryAdapter.OnCl
         else VideoActivity.startDirect(this, item.getSiteKey(), item.getVodId(), item.getVodName(), item.getVodPic(), item.getVodRemarks());
     }
 
-    @Override
-    public boolean onItemLongClick(History item) {
-        TmdbDetailActivity.start(this, item.getSiteKey(), item.getVodId(), item.getVodName(), item.getVodPic(), item.getVodRemarks());
-        return true;
-    }
 }
