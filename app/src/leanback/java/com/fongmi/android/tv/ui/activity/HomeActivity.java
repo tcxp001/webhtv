@@ -530,8 +530,23 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     @Override
     public void onReloadConfig() {
-        mBinding.progressLayout.showProgress();
-        VodConfig.load(getConfig(), getCallback());
+        VodConfig.get().clear().config(getConfig()).load(new Callback() {
+            @Override
+            public void start() {
+                mBinding.progressLayout.showProgress();
+            }
+
+            @Override
+            public void success() {
+                showContent();
+            }
+
+            @Override
+            public void error(String msg) {
+                Notify.show(msg);
+                showContent();
+            }
+        });
     }
 
     @Override

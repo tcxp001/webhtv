@@ -191,7 +191,27 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     }
 
     private boolean onReloadConfig(View view) {
-        setConfig(getConfig());
+        VodConfig.load(getConfig(), new Callback() {
+            @Override
+            public void start() {
+                showProgress();
+                hideContent();
+            }
+
+            @Override
+            public void success() {
+                hideProgress();
+                showContent();
+            }
+
+            @Override
+            public void error(String msg) {
+                Notify.dismiss();
+                Notify.show(msg);
+                hideProgress();
+                showContent();
+            }
+        });
         return true;
     }
 

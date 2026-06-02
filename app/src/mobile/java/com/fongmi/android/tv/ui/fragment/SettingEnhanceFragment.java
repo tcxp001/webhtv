@@ -13,9 +13,11 @@ import com.fongmi.android.tv.bean.AudioConfig;
 import com.fongmi.android.tv.bean.ShortDramaConfig;
 import com.fongmi.android.tv.bean.TmdbConfig;
 import com.fongmi.android.tv.databinding.FragmentSettingEnhanceBinding;
+import com.fongmi.android.tv.setting.CustomCspSetting;
 import com.fongmi.android.tv.setting.ProxySetting;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.ui.base.BaseFragment;
+import com.fongmi.android.tv.ui.dialog.CustomCspDialog;
 import com.fongmi.android.tv.ui.dialog.DebugLogDialog;
 import com.fongmi.android.tv.ui.dialog.FeatureConfigDialog;
 import com.fongmi.android.tv.ui.dialog.OneKeySyncDialog;
@@ -34,7 +36,7 @@ public class SettingEnhanceFragment extends BaseFragment {
     }
 
     private String getSwitch(boolean value) {
-        return getString(value ? R.string.setting_on : R.string.setting_off);
+        return getString(value ? R.string.setting_enable : R.string.setting_disable);
     }
 
     @Override
@@ -58,6 +60,7 @@ public class SettingEnhanceFragment extends BaseFragment {
         mBinding.debugLog.setOnClickListener(this::setDebugLog);
         mBinding.shellProxy.setOnClickListener(this::setShellProxy);
         mBinding.shellProxyConfig.setOnClickListener(this::setShellProxyConfig);
+        mBinding.customCsp.setOnClickListener(view -> CustomCspDialog.show(this, this::setText));
         mBinding.oneKeySync.setOnClickListener(this::setOneKeySync);
     }
 
@@ -72,6 +75,9 @@ public class SettingEnhanceFragment extends BaseFragment {
         mBinding.shellProxyText.setText(getSwitch(Setting.isShellProxy()));
         mBinding.shellProxyConfig.setVisibility(Setting.isShellProxy() ? View.VISIBLE : View.GONE);
         mBinding.shellProxyConfigText.setText(getShellProxyConfigText());
+        CustomCspSetting.Registry registry = CustomCspSetting.load();
+        CustomCspSetting.Count count = CustomCspSetting.count();
+        mBinding.customCspText.setText(getSwitch(registry.isEnabled()) + " · " + getString(R.string.setting_custom_csp_count, count.active(), count.enabled()));
     }
 
     private String getShellProxyConfigText() {
