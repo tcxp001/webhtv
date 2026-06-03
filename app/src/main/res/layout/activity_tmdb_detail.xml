@@ -479,6 +479,12 @@
                     </LinearLayout>
 
                 </RelativeLayout>
+
+                <FrameLayout
+                    android:id="@+id/detailControlHost"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:visibility="gone" />
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.flexbox.FlexboxLayout
