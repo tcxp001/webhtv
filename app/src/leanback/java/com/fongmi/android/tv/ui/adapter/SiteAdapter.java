@@ -1,5 +1,6 @@
 package com.fongmi.android.tv.ui.adapter;
 
+import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -18,11 +19,14 @@ import java.util.List;
 public class SiteAdapter extends RecyclerView.Adapter<SiteAdapter.ViewHolder> {
 
     private final OnClickListener listener;
+    private final List<Site> mAllItems;
     private final List<Site> mItems;
+    private String group;
     private int type;
 
     public SiteAdapter(OnClickListener listener) {
         this.listener = listener;
+        this.mAllItems = new ArrayList<>();
         this.mItems = new ArrayList<>();
         this.addAll();
     }
@@ -46,11 +50,20 @@ public class SiteAdapter extends RecyclerView.Adapter<SiteAdapter.ViewHolder> {
     }
 
     private void addAll() {
-        for (Site site : VodConfig.get().getSites()) if (!site.isHide()) mItems.add(site);
+        for (Site site : VodConfig.get().getSites()) if (!site.isHide()) mAllItems.add(site);
+        filter("");
     }
 
     public List<Site> getItems() {
         return mItems;
+    }
+
+    public void filter(String group) {
+        this.group = group;
+        mItems.clear();
+        String tag = group == null ? "" : group.trim();
+        for (Site site : mAllItems) if (TextUtils.isEmpty(tag) || site.getName().contains(tag)) mItems.add(site);
+        notifyDataSetChanged();
     }
 
     public int getSelectedPosition() {
