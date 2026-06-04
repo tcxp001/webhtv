@@ -147,6 +147,7 @@
 
                 <TextView
                     android:id="@+id/playerError"
+                    style="@style/Shadow"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
@@ -168,6 +169,7 @@
 
                     <TextView
                         android:id="@+id/playerDisplayTitle"
+                        style="@style/Shadow"
                         android:layout_width="320dp"
                         android:layout_height="wrap_content"
                         android:ellipsize="end"
@@ -177,6 +179,7 @@
 
                     <TextView
                         android:id="@+id/playerDisplaySize"
+                        style="@style/Shadow"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
@@ -188,6 +191,7 @@
 
                 <TextView
                     android:id="@+id/playerDisplayClock"
+                    style="@style/Shadow"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="top|end"
@@ -211,6 +215,7 @@
 
                     <TextView
                         android:id="@+id/playerDisplayPosition"
+                        style="@style/Shadow"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:fontFeatureSettings="tnum"
@@ -232,6 +237,7 @@
 
                 <TextView
                     android:id="@+id/playerDisplayTraffic"
+                    style="@style/Shadow"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="bottom|end"
@@ -373,6 +379,7 @@
 
                             <TextView
                                 android:id="@+id/playerTitle"
+                                style="@style/Shadow"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:ellipsize="marquee"
@@ -383,6 +390,7 @@
 
                             <TextView
                                 android:id="@+id/playerSize"
+                                style="@style/Shadow"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
