@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -8,6 +9,7 @@
 
     <com.google.android.material.textview.MaterialTextView
         android:id="@+id/position"
+        style="@style/Shadow"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:fontFeatureSettings="tnum"
@@ -27,10 +29,16 @@
         android:nextFocusLeft="@id/timeBar"
         android:nextFocusRight="@id/timeBar"
         android:nextFocusUp="@id/next"
-        android:nextFocusDown="@id/timeBar" />
+        android:nextFocusDown="@id/timeBar"
+        app:bar_height="3dp"
+        app:buffered_color="@color/white_50"
+        app:played_color="@color/white"
+        app:scrubber_color="@color/white"
+        app:unplayed_color="@color/white_30" />
 
     <com.google.android.material.textview.MaterialTextView
         android:id="@+id/duration"
+        style="@style/Shadow"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:fontFeatureSettings="tnum"

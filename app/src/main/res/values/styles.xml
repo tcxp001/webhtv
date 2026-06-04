@@ -49,6 +49,10 @@
         <item name="android:paddingEnd">10dp</item>
         <item name="android:textColor">@android:color/white</item>
         <item name="android:textSize">13sp</item>
+        <item name="android:shadowColor">#B0000000</item>
+        <item name="android:shadowDx">1.5</item>
+        <item name="android:shadowDy">1.5</item>
+        <item name="android:shadowRadius">2.5</item>
     </style>
 
     <style name="Theme.WebHTV.LightDialog" parent="Theme.Material3.Light.Dialog.Alert">
