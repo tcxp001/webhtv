@@ -1335,7 +1335,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void saveHistory(boolean exit) {
-        updateHistoryPlayer();
+        updateHistoryProgress();
         if (mHistory != null && mHistory.canSave() && !Setting.isIncognito()) Task.execute(() -> {
             mHistory.merge().save();
             if (exit) RefreshEvent.history();
@@ -1343,12 +1343,25 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void syncHistory() {
-        updateHistoryPlayer();
+        updateHistoryProgress();
         if (mHistory != null && !Setting.isIncognito()) Task.execute(() -> mHistory.save());
     }
 
+    private void updateHistoryProgress() {
+        if (mHistory == null || service() == null || player().isReleased() || !isOwner()) {
+            updateHistoryPlayer();
+            return;
+        }
+        long position = player().getPosition();
+        long duration = player().getDuration();
+        if (position > 0) mHistory.setPosition(position);
+        if (duration > 0) mHistory.setDuration(duration);
+        mHistory.setCreateTime(System.currentTimeMillis());
+        updateHistoryPlayer();
+    }
+
     private void updateHistoryPlayer() {
-        if (mHistory != null && service() != null && !player().isReleased()) mHistory.setPlayer(player().getPlayerType());
+        if (mHistory != null && service() != null && !player().isReleased() && !player().isEmpty() && isOwner()) mHistory.setPlayer(player().getPlayerType());
     }
 
     private void updateHistory(Episode item) {

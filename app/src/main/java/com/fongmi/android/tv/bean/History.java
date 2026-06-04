@@ -346,7 +346,7 @@ public class History implements Diffable<History> {
         if (getOpening() > 0) item.setOpening(getOpening());
         if (getEnding() > 0) item.setEnding(getEnding());
         if (getSpeed() != 1) item.setSpeed(getSpeed());
-        if (hasPlayer()) item.setPlayer(getPlayer());
+        if (!item.hasPlayer() && hasPlayer()) item.setPlayer(getPlayer());
         return this;
     }
 
