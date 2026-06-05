@@ -83,6 +83,8 @@ import com.fongmi.android.tv.ui.dialog.SubtitleDialog;
 import com.fongmi.android.tv.ui.dialog.TitleDialog;
 import com.fongmi.android.tv.ui.dialog.TmdbSearchDialog;
 import com.fongmi.android.tv.ui.dialog.TrackDialog;
+import com.fongmi.android.tv.utils.BatteryUtil;
+import com.fongmi.android.tv.utils.Formatters;
 import com.fongmi.android.tv.utils.ImgUtil;
 import com.fongmi.android.tv.utils.AudioUtil;
 import com.fongmi.android.tv.utils.KeyUtil;
@@ -2366,6 +2368,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             hideInlineControls();
             return;
         }
+        updateInlineTitle();
+        updateInlineButtons(service() != null && player() != null && !player().isEmpty() && player().isPlaying());
         inlineControlsView().setVisibility(View.VISIBLE);
         if (focus || !Util.isMobile()) focusInlineDefaultControl();
         touchInlineControls();
@@ -2515,8 +2519,11 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         TextView title = detailControlView(R.id.title, TextView.class);
         TextView size = detailControlView(R.id.size, TextView.class);
         View action = detailActionRoot;
-        title.setText(inlineTitleText());
+        CharSequence titleText = inlineTitleText();
+        title.setText(titleText);
+        title.setVisibility(hasPlayer && !TextUtils.isEmpty(titleText) ? View.VISIBLE : View.INVISIBLE);
         inlineControlController.updateSize(size, inlineFullscreen);
+        updateMobileInlineControlStatus(hasPlayer);
         detailControlView(R.id.play, ImageView.class).setImageResource(playing ? androidx.media3.ui.R.drawable.exo_icon_pause : androidx.media3.ui.R.drawable.exo_icon_play);
         detailActionView(R.id.speed, TextView.class).setText(binding.playerSpeed.getText());
         detailActionView(R.id.player, TextView.class).setText(binding.playerExternal.getText());
@@ -2561,6 +2568,31 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         detailActionView(R.id.repeat, View.class).setSelected(hasPlayer && player().isRepeatOne());
         action.setVisibility(inlineFullscreen ? View.VISIBLE : View.GONE);
         inlineControlController.updateDanmakuState();
+    }
+
+    private void updateMobileInlineControlStatus(boolean hasPlayer) {
+        if (!Util.isMobile()) return;
+        View batteryInfo = detailControlView(R.id.batteryInfo, View.class);
+        batteryInfo.setVisibility(hasPlayer ? View.VISIBLE : View.GONE);
+        if (!hasPlayer) return;
+        updateMobileInlineControlTime();
+        updateMobileInlineBatteryIcon();
+    }
+
+    private void updateMobileInlineControlTime() {
+        if (!Util.isMobile() || detailControlRoot == null) return;
+        detailControlView(R.id.time, TextView.class).setText(LocalDateTime.now().format(Formatters.TIME));
+    }
+
+    private void updateMobileInlineBatteryIcon() {
+        int level = BatteryUtil.getLevel(this);
+        ImageView battery = detailControlView(R.id.battery, ImageView.class);
+        if (level < 0) {
+            battery.setVisibility(View.GONE);
+            return;
+        }
+        battery.setVisibility(View.VISIBLE);
+        battery.setImageResource(BatteryUtil.getIcon(level));
     }
 
     private void showInlineDisplay() {
@@ -3422,6 +3454,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             if (hasAdjacentEpisode(1)) playAdjacentEpisode(1);
             else if (controller() != null) controller().pause();
         }
+        if (isInlineControlsVisible()) updateMobileInlineControlTime();
         updateInlineDisplayPanel();
     }
 

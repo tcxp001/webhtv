@@ -59,53 +59,118 @@
         android:visibility="gone" />
 
     <androidx.appcompat.widget.LinearLayoutCompat
-        android:id="@+id/display_status"
+        android:id="@+id/displayTopLeft"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="12dp"
+        android:orientation="vertical"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/displayTitle"
+            style="@style/Shadow"
+            android:layout_width="220dp"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:textColor="@color/white"
+            android:textSize="14sp"
+            tools:text="庆余年第一季：第一集" />
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/displaySize"
+            style="@style/Shadow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:background="@null"
+            android:fontFeatureSettings="tnum"
+            android:textColor="@color/white"
+            android:textSize="12sp"
+            android:visibility="gone"
+            tools:text="1920 x 1080"
+            tools:visibility="visible" />
+
+    </androidx.appcompat.widget.LinearLayoutCompat>
+
+    <com.google.android.material.textview.MaterialTextView
+        android:id="@+id/displayClock"
+        style="@style/Shadow"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="top|end"
         android:layout_marginTop="12dp"
         android:layout_marginEnd="12dp"
-        android:background="@drawable/shape_widget"
-        android:gravity="center"
-        android:orientation="horizontal"
+        android:fontFeatureSettings="tnum"
+        android:textColor="@color/white"
+        android:textSize="14sp"
+        android:visibility="gone"
+        tools:text="21:49"
+        tools:visibility="visible" />
+
+    <androidx.appcompat.widget.LinearLayoutCompat
+        android:id="@+id/displayBottomProgress"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="96dp"
+        android:layout_marginBottom="12dp"
+        android:orientation="vertical"
         android:visibility="gone"
         tools:visibility="visible">
 
         <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/display_time"
+            android:id="@+id/displayPosition"
+            style="@style/Shadow"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFeatureSettings="tnum"
             android:textColor="@color/white"
             android:textSize="12sp"
-            android:visibility="gone"
-            tools:text="20:30"
-            tools:visibility="visible" />
+            tools:text="13:47/47:31" />
 
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/display_traffic"
-            android:layout_width="wrap_content"
+        <com.google.android.material.progressindicator.LinearProgressIndicator
+            android:id="@+id/displayBar"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:fontFeatureSettings="tnum"
-            android:textColor="@color/white"
-            android:textSize="12sp"
-            android:visibility="gone"
-            tools:text="120 KB/s"
-            tools:visibility="visible" />
+            android:layout_marginTop="6dp"
+            android:max="10000"
+            android:progress="0"
+            app:indicatorColor="@color/white"
+            app:trackColor="@color/black_20"
+            app:trackThickness="3dp" />
 
     </androidx.appcompat.widget.LinearLayoutCompat>
 
+    <com.google.android.material.textview.MaterialTextView
+        android:id="@+id/displayTraffic"
+        style="@style/Shadow"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="12dp"
+        android:layout_marginBottom="12dp"
+        android:fontFeatureSettings="tnum"
+        android:textColor="@color/white"
+        android:textSize="12sp"
+        android:visibility="gone"
+        tools:text="120 KB/s"
+        tools:visibility="visible" />
+
     <com.google.android.material.progressindicator.LinearProgressIndicator
-        android:id="@+id/display_mini"
+        android:id="@+id/displayMini"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        android:max="1000"
+        android:max="10000"
         android:progress="0"
         android:visibility="gone"
         app:indicatorColor="@color/white"
-        app:trackColor="@color/black_20"
+        app:trackColor="@android:color/transparent"
         app:trackThickness="2dp"
         tools:visibility="visible" />
 

@@ -64,7 +64,9 @@ import com.fongmi.android.tv.ui.dialog.LiveDialog;
 import com.fongmi.android.tv.ui.dialog.PassDialog;
 import com.fongmi.android.tv.ui.dialog.SubtitleDialog;
 import com.fongmi.android.tv.ui.dialog.TrackDialog;
+import com.fongmi.android.tv.utils.BatteryUtil;
 import com.fongmi.android.tv.utils.Biometric;
+import com.fongmi.android.tv.utils.Formatters;
 import com.fongmi.android.tv.utils.ImgUtil;
 import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.android.tv.utils.PiP;
@@ -78,6 +80,7 @@ import org.greenrobot.eventbus.ThreadMode;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.time.LocalDateTime;
 
 public class LiveActivity extends PlaybackActivity implements CustomKeyDown.Listener, TrackDialog.Listener, Biometric.Callback, PassListener, ConfigListener, LiveListener, GroupAdapter.OnClickListener, ChannelAdapter.OnClickListener, EpgDataAdapter.OnClickListener, CastDialog.Listener, InfoDialog.Listener {
 
@@ -96,6 +99,7 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
     private Runnable mR1;
     private Runnable mR2;
     private Runnable mR3;
+    private Runnable mR4;
     private boolean rotate;
     private int count;
     private PiP mPiP;
@@ -172,6 +176,7 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
         mR1 = this::hideControl;
         mR2 = this::setTraffic;
         mR3 = this::hideInfo;
+        mR4 = this::updateControlTime;
         mPiP = new PiP();
         setRecyclerView();
         setVideoView();
@@ -517,6 +522,7 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
         mBinding.control.bottom.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.back.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.top.setVisibility(isLock() ? View.GONE : View.VISIBLE);
+        updateControlStatus();
         mBinding.control.getRoot().setVisibility(View.VISIBLE);
         setR1Callback();
         hideInfo();
@@ -524,7 +530,30 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
 
     private void hideControl() {
         mBinding.control.getRoot().setVisibility(View.GONE);
-        App.removeCallbacks(mR1);
+        App.removeCallbacks(mR1, mR4);
+    }
+
+    private void updateControlStatus() {
+        mBinding.control.batteryInfo.setVisibility(isLock() ? View.GONE : View.VISIBLE);
+        if (isLock()) return;
+        updateControlTime();
+        updateBatteryIcon();
+    }
+
+    private void updateControlTime() {
+        App.removeCallbacks(mR4);
+        mBinding.control.time.setText(LocalDateTime.now().format(Formatters.TIME));
+        if (isVisible(mBinding.control.getRoot()) && !isLock()) App.post(mR4, 1000);
+    }
+
+    private void updateBatteryIcon() {
+        int level = BatteryUtil.getLevel(this);
+        if (level < 0) {
+            mBinding.control.battery.setVisibility(View.GONE);
+            return;
+        }
+        mBinding.control.battery.setVisibility(View.VISIBLE);
+        mBinding.control.battery.setImageResource(BatteryUtil.getIcon(level));
     }
 
     private void showInfo() {
@@ -1151,7 +1180,7 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
     @Override
     protected void onDestroy() {
         Source.get().exit();
-        App.removeCallbacks(mR1, mR2, mR3);
+        App.removeCallbacks(mR1, mR2, mR3, mR4);
         mViewModel.url().removeObserver(mObserveUrl);
         mViewModel.epg().removeObserver(mObserveEpg);
         super.onDestroy();

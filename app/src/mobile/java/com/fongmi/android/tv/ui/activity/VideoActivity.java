@@ -90,6 +90,7 @@ import com.fongmi.android.tv.ui.dialog.ReceiveDialog;
 import com.fongmi.android.tv.ui.dialog.SubtitleDialog;
 import com.fongmi.android.tv.ui.dialog.TitleDialog;
 import com.fongmi.android.tv.ui.dialog.TrackDialog;
+import com.fongmi.android.tv.utils.BatteryUtil;
 import com.fongmi.android.tv.utils.Clock;
 import com.fongmi.android.tv.utils.FileChooser;
 import com.fongmi.android.tv.utils.AudioUtil;
@@ -1204,7 +1205,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.control.bottom.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.back.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.top.setVisibility(isLock() ? View.GONE : View.VISIBLE);
-        mBinding.control.seek.setVisibility(PlayerSetting.isDisplayProgress() ? View.VISIBLE : View.GONE);
+        mBinding.control.seek.setVisibility(View.VISIBLE);
+        updateControlStatus();
         setControlTitleVisibility();
         setControlSizeVisibility();
         mBinding.control.getRoot().setVisibility(View.VISIBLE);
@@ -1239,7 +1241,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void applyDisplaySettings() {
-        mBinding.control.seek.setVisibility(PlayerSetting.isDisplayProgress() ? View.VISIBLE : View.GONE);
+        mBinding.control.seek.setVisibility(View.VISIBLE);
         setControlTitleVisibility();
         setControlSizeVisibility();
         updateDisplayStatus(System.currentTimeMillis());
@@ -1247,27 +1249,76 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void setControlTitleVisibility() {
-        mBinding.control.title.setVisibility(isFullscreen() && (PlayerSetting.isDisplayTitle() || isShortDramaSource()) ? View.VISIBLE : View.INVISIBLE);
+        String title = getControlTitle();
+        if (!TextUtils.isEmpty(title)) mBinding.control.title.setText(title);
+        boolean show = service() != null && !player().isEmpty() && !TextUtils.isEmpty(title);
+        mBinding.control.title.setVisibility(show ? View.VISIBLE : View.INVISIBLE);
+    }
+
+    private String getControlTitle() {
+        String title = String.valueOf(mBinding.control.title.getText());
+        if (!TextUtils.isEmpty(title)) return title;
+        if (mHistory != null) {
+            String name = mHistory.getVodName();
+            String episode = mHistory.getVodRemarks();
+            if (!TextUtils.isEmpty(name) && !TextUtils.isEmpty(episode)) return getString(R.string.detail_title, name, episode);
+            if (!TextUtils.isEmpty(name)) return name;
+        }
+        title = String.valueOf(mBinding.name.getText());
+        return TextUtils.isEmpty(title) ? getName() : title;
     }
 
     private void setControlSizeVisibility() {
         if (isShortDramaSource()) mBinding.control.size.setVisibility(View.GONE);
-        else mControlController.updateSize(mBinding.control.size, isFullscreen());
+        else mControlController.updateSize(mBinding.control.size, service() != null && !player().isEmpty());
+    }
+
+    private void updateControlStatus() {
+        mBinding.control.batteryInfo.setVisibility(isLock() ? View.GONE : View.VISIBLE);
+        if (isLock()) return;
+        updateControlTime();
+        updateBatteryIcon();
+    }
+
+    private void updateControlTime() {
+        mBinding.control.time.setText(LocalDateTime.now().format(Formatters.TIME));
+    }
+
+    private void updateBatteryIcon() {
+        int level = BatteryUtil.getLevel(this);
+        if (level < 0) {
+            mBinding.control.battery.setVisibility(View.GONE);
+            return;
+        }
+        mBinding.control.battery.setVisibility(View.VISIBLE);
+        mBinding.control.battery.setImageResource(BatteryUtil.getIcon(level));
     }
 
     private void updateDisplayStatus(long time) {
         boolean controlsVisible = isVisible(mBinding.control.getRoot());
-        boolean showTime = PlayerSetting.isDisplayTime() && !controlsVisible;
-        boolean showTraffic = PlayerSetting.isDisplayTraffic() && !controlsVisible && service() != null && !player().isEmpty() && mBinding.progress.getRoot().getVisibility() != View.VISIBLE;
-        mBinding.widget.displayTime.setVisibility(showTime ? View.VISIBLE : View.GONE);
-        if (showTime) mBinding.widget.displayTime.setText(LocalDateTime.now().format(Formatters.TIME));
+        boolean canShow = !controlsVisible && service() != null && !player().isEmpty() && mBinding.progress.getRoot().getVisibility() != View.VISIBLE && !isInPictureInPictureMode();
+        String title = getControlTitle();
+        String size = canShow ? player().getSizeText() : "";
+        boolean showTitle = canShow && PlayerSetting.isDisplayTitle() && !TextUtils.isEmpty(title);
+        boolean showSize = canShow && PlayerSetting.isDisplaySize() && !TextUtils.isEmpty(size);
+        boolean showClock = canShow && PlayerSetting.isDisplayTime();
+        boolean showTraffic = canShow && PlayerSetting.isDisplayTraffic();
+        boolean showProgress = canShow && PlayerSetting.isDisplayProgress() && player().getDuration() > 0;
+        mBinding.widget.displayTitle.setText(title);
+        mBinding.widget.displayTitle.setVisibility(showTitle ? View.VISIBLE : View.GONE);
+        mBinding.widget.displaySize.setText(showSize ? size : "");
+        mBinding.widget.displaySize.setVisibility(showSize ? View.VISIBLE : View.GONE);
+        mBinding.widget.displayTopLeft.setVisibility(showTitle || showSize ? View.VISIBLE : View.GONE);
+        mBinding.widget.displayClock.setVisibility(showClock ? View.VISIBLE : View.GONE);
+        if (showClock) mBinding.widget.displayClock.setText(LocalDateTime.now().format(Formatters.TIME));
         if (showTraffic) Traffic.setSpeed(mBinding.widget.displayTraffic);
         else mBinding.widget.displayTraffic.setVisibility(View.GONE);
-        mBinding.widget.displayStatus.setVisibility(showTime || mBinding.widget.displayTraffic.getVisibility() == View.VISIBLE ? View.VISIBLE : View.GONE);
+        mBinding.widget.displayBottomProgress.setVisibility(showProgress ? View.VISIBLE : View.GONE);
+        if (showProgress) updateDisplayProgress();
     }
 
     private void updateMiniProgress() {
-        if (service() == null || !PlayerSetting.isDisplayMini() || isVisible(mBinding.control.getRoot()) || player().isEmpty()) {
+        if (service() == null || !PlayerSetting.isDisplayMini() || isVisible(mBinding.control.getRoot()) || player().isEmpty() || mBinding.progress.getRoot().getVisibility() == View.VISIBLE || isInPictureInPictureMode()) {
             mBinding.widget.displayMini.setVisibility(View.GONE);
             return;
         }
@@ -1277,8 +1328,16 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             return;
         }
         long position = Math.max(0, Math.min(player().getPosition(), duration));
-        mBinding.widget.displayMini.setProgress((int) (position * 1000 / duration));
+        mBinding.widget.displayMini.setProgress((int) (position * mBinding.widget.displayMini.getMax() / duration));
         mBinding.widget.displayMini.setVisibility(View.VISIBLE);
+    }
+
+    private void updateDisplayProgress() {
+        long duration = player().getDuration();
+        long position = Math.max(0, Math.min(player().getPosition(), duration));
+        int progress = duration > 0 ? (int) (position * mBinding.widget.displayBar.getMax() / duration) : 0;
+        mBinding.widget.displayPosition.setText(player().getPositionTime(0) + "/" + player().getDurationTime());
+        mBinding.widget.displayBar.setProgress(progress);
     }
 
     private void setOrient() {
@@ -1570,6 +1629,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     public void onTimeChanged(long time) {
         if (!isOwner()) return;
         long position, duration;
+        if (isVisible(mBinding.control.getRoot()) && isFullscreen()) updateControlTime();
         updateDisplayStatus(time);
         updateMiniProgress();
         mHistory.setCreateTime(time);

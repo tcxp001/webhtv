@@ -105,6 +105,39 @@
                 android:scaleType="center"
                 android:src="@drawable/ic_control_setting" />
 
+            <androidx.appcompat.widget.LinearLayoutCompat
+                android:id="@+id/batteryInfo"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:id="@+id/battery"
+                    android:layout_width="22dp"
+                    android:layout_height="18dp"
+                    android:layout_marginTop="3dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:scaleType="center"
+                    android:src="@drawable/ic_battery_full" />
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/time"
+                    android:layout_width="24dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="1dp"
+                    android:layout_marginTop="-4dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:fontFeatureSettings="tnum"
+                    android:maxLength="5"
+                    android:textColor="@color/white"
+                    android:textSize="8sp"
+                    tools:text="21:49" />
+
+            </androidx.appcompat.widget.LinearLayoutCompat>
+
         </androidx.appcompat.widget.LinearLayoutCompat>
     </androidx.appcompat.widget.LinearLayoutCompat>
 
