@@ -16,10 +16,12 @@ import java.util.List;
 
 public class InlineEpisodeAdapter extends RecyclerView.Adapter<InlineEpisodeAdapter.ViewHolder> {
 
-    private static final int COLOR_NORMAL = 0xFF263442;
-    private static final int COLOR_ACTIVE = 0xFF2CC56F;
-    private static final int COLOR_FOCUS = 0xFFFFD166;
+    private static final int COLOR_NORMAL = 0x99263442;
+    private static final int COLOR_ACTIVE = 0xCC2AA46B;
+    private static final int COLOR_FOCUS = 0xFF2196F3;
+    private static final int COLOR_FOCUS_BG = 0xFFEAF2F8;
     private static final int COLOR_TEXT = 0xFFEAF2F8;
+    private static final int COLOR_FOCUS_TEXT = 0xFF0B5CAD;
 
     public interface Listener {
         void onItemClick(Episode item);
@@ -50,10 +52,11 @@ public class InlineEpisodeAdapter extends RecyclerView.Adapter<InlineEpisodeAdap
         button.setInsetBottom(0);
         button.setSingleLine(true);
         button.setEllipsize(TextUtils.TruncateAt.END);
-        button.setTextSize(13f);
-        button.setPadding(ResUtil.dp2px(10), ResUtil.dp2px(10), ResUtil.dp2px(10), ResUtil.dp2px(10));
-        RecyclerView.LayoutParams params = new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        params.setMargins(ResUtil.dp2px(4), ResUtil.dp2px(4), ResUtil.dp2px(4), ResUtil.dp2px(4));
+        button.setAllCaps(false);
+        button.setTextSize(16f);
+        button.setPadding(ResUtil.dp2px(10), 0, ResUtil.dp2px(10), 0);
+        RecyclerView.LayoutParams params = new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(42));
+        params.setMargins(ResUtil.dp2px(8), ResUtil.dp2px(5), ResUtil.dp2px(8), ResUtil.dp2px(5));
         button.setLayoutParams(params);
         return new ViewHolder(button);
     }
@@ -62,7 +65,7 @@ public class InlineEpisodeAdapter extends RecyclerView.Adapter<InlineEpisodeAdap
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Episode item = items.get(position);
         boolean active = item.equals(selected);
-        holder.button.setText(item.getName());
+        holder.button.setText(EpisodeAdapter.getTitle(item));
         holder.button.setOnFocusChangeListener(null);
         applyState(holder.button, active, holder.button.hasFocus());
         holder.button.setOnFocusChangeListener((view, focused) -> applyState(holder.button, active, focused));
@@ -70,10 +73,10 @@ public class InlineEpisodeAdapter extends RecyclerView.Adapter<InlineEpisodeAdap
     }
 
     private void applyState(MaterialButton button, boolean active, boolean focused) {
-        button.setTextColor(active ? 0xFFFFFFFF : COLOR_TEXT);
-        button.setBackgroundTintList(ColorStateList.valueOf(active ? COLOR_ACTIVE : COLOR_NORMAL));
-        button.setStrokeColor(ColorStateList.valueOf(focused ? COLOR_FOCUS : (active ? COLOR_ACTIVE : 0x33FFFFFF)));
-        button.setStrokeWidth(ResUtil.dp2px(focused ? 3 : 1));
+        button.setTextColor(active ? 0xFFFFFFFF : focused ? COLOR_FOCUS_TEXT : COLOR_TEXT);
+        button.setBackgroundTintList(ColorStateList.valueOf(active ? COLOR_ACTIVE : focused ? COLOR_FOCUS_BG : COLOR_NORMAL));
+        button.setStrokeColor(ColorStateList.valueOf(active ? 0xFF2AA46B : focused ? COLOR_FOCUS : 0x44FFFFFF));
+        button.setStrokeWidth(ResUtil.dp2px(active || focused ? 2 : 1));
     }
 
     @Override

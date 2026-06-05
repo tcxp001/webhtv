@@ -20,6 +20,7 @@ import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -2903,6 +2904,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void showInlineEpisodes() {
         if (selectedFlag == null || selectedFlag.getEpisodes() == null || selectedFlag.getEpisodes().isEmpty()) return;
+        if (!Util.isMobile()) {
+            showTvInlineEpisodes();
+            return;
+        }
         FrameLayout content = new FrameLayout(this);
         content.setPadding(ResUtil.dp2px(12), ResUtil.dp2px(8), ResUtil.dp2px(12), ResUtil.dp2px(8));
         RecyclerView recycler = new RecyclerView(this);
@@ -2940,6 +2945,179 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             int width = ResUtil.getScreenWidth(this);
             window.setLayout(Math.min(ResUtil.dp2px(720), (int) (width * 0.92f)), WindowManager.LayoutParams.WRAP_CONTENT);
         }
+    }
+
+    private void showTvInlineEpisodes() {
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(ResUtil.dp2px(28), ResUtil.dp2px(16), ResUtil.dp2px(28), ResUtil.dp2px(20));
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(0xDD111820);
+        background.setCornerRadius(ResUtil.dp2px(8));
+        panel.setBackground(background);
+
+        LinearLayout header = new LinearLayout(this);
+        header.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        TextView title = new TextView(this);
+        title.setText(R.string.detail_episode);
+        title.setTextColor(0xFFEAF2F8);
+        title.setTextSize(18f);
+        header.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        ImageView reverse = new ImageView(this);
+        reverse.setImageResource(R.drawable.ic_action_reverse);
+        reverse.setColorFilter(0xFFEAF2F8);
+        reverse.setPadding(ResUtil.dp2px(8), ResUtil.dp2px(8), ResUtil.dp2px(8), ResUtil.dp2px(8));
+        reverse.setFocusable(true);
+        reverse.setFocusableInTouchMode(true);
+        reverse.setClickable(true);
+        reverse.setContentDescription(getString(R.string.detail_episode_reverse));
+        applyEpisodeDialogIconState(reverse, false);
+        reverse.setOnFocusChangeListener((view, focused) -> applyEpisodeDialogIconState(reverse, focused));
+        header.addView(reverse, new LinearLayout.LayoutParams(ResUtil.dp2px(34), ResUtil.dp2px(34)));
+        panel.addView(header, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        HorizontalScrollView pageScroll = new HorizontalScrollView(this);
+        pageScroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout pageRow = new LinearLayout(this);
+        pageRow.setOrientation(LinearLayout.HORIZONTAL);
+        pageScroll.addView(pageRow, new HorizontalScrollView.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams pageParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(48));
+        pageParams.topMargin = ResUtil.dp2px(6);
+        panel.addView(pageScroll, pageParams);
+
+        RecyclerView recycler = new RecyclerView(this);
+        recycler.setClipToPadding(false);
+        recycler.setLayoutManager(new GridLayoutManager(this, 3));
+        InlineEpisodeAdapter adapter = new InlineEpisodeAdapter(episode -> {
+            Dialog dialog = (Dialog) panel.getTag();
+            if (dialog != null) dialog.dismiss();
+            selectInlineEpisode(episode);
+        });
+        recycler.setAdapter(adapter);
+        LinearLayout.LayoutParams recyclerParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(314));
+        recyclerParams.topMargin = ResUtil.dp2px(6);
+        panel.addView(recycler, recyclerParams);
+
+        final int pageSize = 12;
+        final int[] pageIndex = {0};
+        final List<TextView> pageButtons = new ArrayList<>();
+        final Runnable[] render = new Runnable[1];
+        final java.util.function.IntConsumer showPage = index -> {
+            List<Episode> ordered = orderedInlineEpisodes();
+            if (ordered.isEmpty()) return;
+            int pageCount = (int) Math.ceil(ordered.size() / (float) pageSize);
+            pageIndex[0] = Math.max(0, Math.min(index, pageCount - 1));
+            int start = pageIndex[0] * pageSize;
+            int end = Math.min(start + pageSize, ordered.size());
+            adapter.setItems(ordered.subList(start, end), selectedEpisode);
+            for (int i = 0; i < pageButtons.size(); i++) applyEpisodeDialogPageState(pageButtons.get(i), i == pageIndex[0], pageButtons.get(i).hasFocus());
+            int selected = ordered.subList(start, end).indexOf(selectedEpisode);
+            if (selected < 0) selected = 0;
+            int focus = selected;
+            recycler.post(() -> {
+                recycler.scrollToPosition(focus);
+                recycler.post(() -> {
+                    RecyclerView.ViewHolder holder = recycler.findViewHolderForAdapterPosition(focus);
+                    if (holder != null) holder.itemView.requestFocus();
+                    else recycler.requestFocus();
+                });
+            });
+        };
+        render[0] = () -> {
+            List<Episode> ordered = orderedInlineEpisodes();
+            pageRow.removeAllViews();
+            pageButtons.clear();
+            if (ordered.isEmpty()) return;
+            int pageCount = (int) Math.ceil(ordered.size() / (float) pageSize);
+            int selected = ordered.indexOf(selectedEpisode);
+            int selectedPage = selected < 0 ? 0 : selected / pageSize;
+            for (int i = 0; i < pageCount; i++) {
+                int start = i * pageSize;
+                int end = Math.min(start + pageSize, ordered.size());
+                TextView button = createEpisodeDialogPageButton((start + 1) + " - " + end, i == selectedPage);
+                int page = i;
+                button.setOnClickListener(view -> showPage.accept(page));
+                button.setOnFocusChangeListener((view, focused) -> {
+                    applyEpisodeDialogPageState(button, page == pageIndex[0], focused);
+                    if (focused && page != pageIndex[0]) showPage.accept(page);
+                });
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ResUtil.dp2px(136), ResUtil.dp2px(34));
+                params.setMargins(0, ResUtil.dp2px(5), ResUtil.dp2px(12), ResUtil.dp2px(5));
+                pageRow.addView(button, params);
+                pageButtons.add(button);
+            }
+            showPage.accept(selectedPage);
+        };
+        reverse.setOnClickListener(view -> {
+            toggleEpisodeReverse();
+            render[0].run();
+        });
+
+        AlertDialog dialog = new MaterialAlertDialogBuilder(this).setView(panel).create();
+        panel.setTag(dialog);
+        dialog.setOnShowListener(value -> render[0].run());
+        if (!canTouchUi()) return;
+        dialog.show();
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawableResource(android.R.color.transparent);
+            window.setDimAmount(0.18f);
+            int width = (int) (ResUtil.getScreenWidth(this) * 0.84f);
+            window.setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT);
+        }
+    }
+
+    private List<Episode> orderedInlineEpisodes() {
+        List<Episode> ordered = new ArrayList<>(selectedFlag == null || selectedFlag.getEpisodes() == null ? List.of() : selectedFlag.getEpisodes());
+        if (episodeReverse) Collections.reverse(ordered);
+        return ordered;
+    }
+
+    private TextView createEpisodeDialogPageButton(String text, boolean selected) {
+        TextView button = new TextView(this);
+        button.setText(text);
+        button.setTextSize(15f);
+        button.setSingleLine(true);
+        button.setEllipsize(TextUtils.TruncateAt.END);
+        button.setGravity(android.view.Gravity.CENTER);
+        button.setFocusable(true);
+        button.setFocusableInTouchMode(true);
+        button.setMinWidth(ResUtil.dp2px(136));
+        button.setPadding(ResUtil.dp2px(18), 0, ResUtil.dp2px(18), 0);
+        applyEpisodeDialogPageState(button, selected, false);
+        return button;
+    }
+
+    private void applyEpisodeDialogPageState(TextView button, boolean selected, boolean focused) {
+        GradientDrawable background = new GradientDrawable();
+        background.setCornerRadius(ResUtil.dp2px(6));
+        if (focused) {
+            background.setColor(0x552196F3);
+            background.setStroke(ResUtil.dp2px(3), 0xFF0077FF);
+            button.setTextColor(0xFFFFFFFF);
+        } else if (selected) {
+            background.setColor(0x332196F3);
+            background.setStroke(ResUtil.dp2px(2), 0xFF2196F3);
+            button.setTextColor(0xFF85C7FF);
+        } else {
+            background.setColor(0x00000000);
+            button.setTextColor(0xFFC6D0D9);
+        }
+        button.setSelected(selected);
+        button.setBackground(background);
+    }
+
+    private void applyEpisodeDialogIconState(ImageView icon, boolean focused) {
+        GradientDrawable background = new GradientDrawable();
+        background.setCornerRadius(ResUtil.dp2px(6));
+        if (focused) {
+            background.setColor(0x552196F3);
+            background.setStroke(ResUtil.dp2px(3), 0xFF0077FF);
+        } else {
+            background.setColor(0x00000000);
+        }
+        icon.setBackground(background);
     }
 
     private int inlineEpisodeSpanCount() {

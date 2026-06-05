@@ -85,6 +85,8 @@ public class EpisodeDialog extends BaseAlertDialog {
         if (getDialog() == null) return;
         Window window = getDialog().getWindow();
         if (window == null) return;
+        window.setBackgroundDrawableResource(android.R.color.transparent);
+        window.setDimAmount(0.18f);
         WindowManager.LayoutParams params = window.getAttributes();
         params.width = (int) (ResUtil.getScreenWidth(requireContext()) * 0.84f);
         params.height = WindowManager.LayoutParams.WRAP_CONTENT;
