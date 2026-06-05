@@ -68,9 +68,10 @@
                 android:id="@+id/typeMore"
                 android:layout_width="44dp"
                 android:layout_height="36dp"
+                android:layout_gravity="center_vertical"
                 android:layout_marginStart="4dp"
                 android:layout_marginEnd="0dp"
-                android:background="@drawable/shape_item_round"
+                android:background="@drawable/shape_type_more"
                 android:contentDescription="@string/menu_more"
                 android:gravity="center"
                 android:minWidth="0dp"
@@ -78,7 +79,7 @@
                 android:padding="9dp"
                 android:scaleType="center"
                 android:visibility="gone"
-                app:srcCompat="@drawable/ic_action_type_more"
+                app:srcCompat="@drawable/ic_action_menu"
                 tools:visibility="visible" />
 
         </LinearLayout>

@@ -46,8 +46,19 @@ public class TypeDialog extends BaseBottomSheetDialog implements TypeAdapter.OnC
     protected void initView() {
         binding.recycler.setHasFixedSize(true);
         binding.recycler.setItemAnimator(null);
-        binding.recycler.setLayoutManager(new GridLayoutManager(requireContext(), 3));
+        binding.recycler.setLayoutManager(new GridLayoutManager(requireContext(), getSpanCount()));
         binding.recycler.setAdapter(new TypeDialogAdapter(this, items));
+    }
+
+    private int getSpanCount() {
+        if (items == null || items.isEmpty()) return 3;
+        int length = 0;
+        for (Class item : items) length += item.getTypeName().length();
+        int average = (int) Math.ceil(length * 1f / items.size());
+        if (average >= 12) return 1;
+        if (average >= 8) return 2;
+        if (average >= 4) return 3;
+        return 4;
     }
 
     @Override
