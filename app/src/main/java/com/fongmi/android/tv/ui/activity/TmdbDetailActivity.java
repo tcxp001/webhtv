@@ -2361,7 +2361,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             return;
         }
         inlineControlsView().setVisibility(View.VISIBLE);
-        if (focus) focusInlineDefaultControl();
+        if (focus || !Util.isMobile()) focusInlineDefaultControl();
         touchInlineControls();
         updateInlineDisplayPanel();
     }
@@ -2399,6 +2399,12 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void focusInlineDefaultControl() {
+        if (!Util.isMobile()) {
+            inlineControlsView().post(() -> {
+                if (isInlineControlsVisible()) binding.playerFullscreenAction.requestFocus();
+            });
+            return;
+        }
         if (hasFocusedChild(inlineControlsView())) return;
         inlineControlsView().post(() -> {
             if (isInlineControlsVisible() && !hasFocusedChild(inlineControlsView())) getInlineControlFocus().requestFocus();
@@ -2406,6 +2412,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private View getInlineControlFocus() {
+        if (!Util.isMobile()) return binding.playerFullscreenAction;
         if (inlineControlFocus != null && isVisibleInHierarchy(inlineControlFocus) && inlineControlFocus.isEnabled()) return inlineControlFocus;
         if (Util.isMobile()) return detailControlView(R.id.play, View.class);
         return binding.playerFullscreenAction;
@@ -2480,7 +2487,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.playerCast.setVisibility(hasInlineCast() ? View.VISIBLE : View.GONE);
         binding.playerInfo.setVisibility(hasInlineInfo() ? View.VISIBLE : View.GONE);
         binding.playerActionRow.setVisibility(View.VISIBLE);
-        binding.playerDanmakuToggle.setVisibility(hasPlayer && inlineControlController.hasDanmakuControl() ? View.VISIBLE : View.GONE);
+        binding.playerDanmakuToggle.setVisibility(View.GONE);
         binding.playerQuality.setVisibility(inlineQuality ? View.VISIBLE : View.GONE);
         binding.playerVideoTrack.setVisibility(hasPlayer && player().haveTrack(C.TRACK_TYPE_VIDEO) && !inlineVideoTrackAsQuality ? View.VISIBLE : View.GONE);
         binding.playerParse.setVisibility(useParse && !VodConfig.get().getParses().isEmpty() ? View.VISIBLE : View.GONE);
@@ -3102,7 +3109,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private void ensureInlineDanmakuController() {
         if (service() == null || inlineControlController == null) return;
         player().setDanmakuController(binding.exo.getDanmakuController());
-        inlineControlController.applyDanmakuSetting();
+        if (!Util.isMobile()) player().setDanmakuEnabled(true);
+        else inlineControlController.applyDanmakuSetting();
     }
 
     @Override

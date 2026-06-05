@@ -942,6 +942,7 @@ public class LiveActivity extends PlaybackActivity implements GroupAdapter.OnCli
     }
 
     private View getFocus2() {
+        if (isGone(mBinding.control.getRoot())) return mBinding.control.action.config;
         return mFocus2 == null || mFocus2.getVisibility() != View.VISIBLE ? mBinding.control.action.config : mFocus2;
     }
 

@@ -305,6 +305,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     @Override
     protected void onServiceConnected() {
         player().setDanmakuController(mBinding.exo.getDanmakuController());
+        player().setDanmakuEnabled(true);
         setPlayer();
         setDecode();
         checkId();
@@ -363,8 +364,10 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.control.action.opening.setDownListener(this::onOpeningSub);
         mBinding.control.action.text.setUpListener(this::onSubtitleClick);
         mBinding.control.action.text.setDownListener(this::onSubtitleClick);
+        mBinding.control.action.fullscreen.setOnClickListener(view -> onFullscreen());
         mBinding.control.action.next.setOnClickListener(view -> checkNext());
         mBinding.control.action.prev.setOnClickListener(view -> checkPrev());
+        mBinding.control.action.episodes.setOnClickListener(view -> onEpisodes());
         mBinding.control.action.scale.setOnClickListener(view -> onScale());
         mBinding.control.action.speed.setOnClickListener(view -> onSpeed());
         mBinding.control.action.reset.setOnClickListener(view -> onReset());
@@ -640,6 +643,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private void setEpisodeAdapter(List<Episode> items) {
+        mBinding.control.action.episodes.setVisibility(items.size() < 2 ? View.GONE : View.VISIBLE);
         mBinding.episode.setVisibility(items.isEmpty() ? View.GONE : View.VISIBLE);
         mBinding.episodeHeader.setVisibility(items.isEmpty() ? View.GONE : View.VISIBLE);
         setEpisodeReverseText();
@@ -785,6 +789,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.flag.setSelectedPosition(mFlagAdapter.getPosition());
         mKeyDown.setFull(true);
         setFullscreen(true);
+        mBinding.control.action.fullscreen.setText(R.string.play_exit_fullscreen);
         mFocus2 = null;
     }
 
@@ -802,6 +807,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         getFocus1().requestFocus();
         mKeyDown.setFull(false);
         setFullscreen(false);
+        mBinding.control.action.fullscreen.setText(R.string.play_fullscreen);
         mFocus2 = null;
         hideInfo();
     }
@@ -821,6 +827,11 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private void onVideo() {
         if (!isFullscreen()) enterFullscreen();
+    }
+
+    private void onFullscreen() {
+        if (isFullscreen()) exitFullscreen();
+        else enterFullscreen();
     }
 
     private void onChange() {
@@ -1598,7 +1609,8 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private View getFocus2() {
-        return mFocus2 == null || mFocus2.getVisibility() != View.VISIBLE || mFocus2 == mBinding.control.action.opening || mFocus2 == mBinding.control.action.ending ? mBinding.control.action.next : mFocus2;
+        if (isFullscreen() && isGone(mBinding.control.getRoot())) return mBinding.control.action.fullscreen;
+        return mFocus2 == null || mFocus2.getVisibility() != View.VISIBLE || mFocus2 == mBinding.control.action.opening || mFocus2 == mBinding.control.action.ending ? mBinding.control.action.fullscreen : mFocus2;
     }
 
     @Override
