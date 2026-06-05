@@ -180,6 +180,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private long lastInlineControlInteraction;
     private float inlineGestureSpeed = 1.0f;
     private boolean inlineWakeControlsByKey;
+    private boolean inlineStartPositionApplied;
     private int selectedSeasonNumber = -1;
     private int playerIndex = -1;
     private int requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
@@ -2295,6 +2296,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         updateInlineButtons(false);
         player().stop();
         player().clear();
+        inlineStartPositionApplied = false;
         player().switchPlayer(history == null ? PlayerSetting.getPlayer() : history.getPlayerOrDefault());
         updateInlineHistoryPlayer();
         updateInlineButtons(false);
@@ -3058,11 +3060,15 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     @Override
     protected void onPrepare() {
-        if (history == null) return;
+        setInlineScale(getInlineScale());
+        if (history != null && service() != null && !player().isEmpty()) binding.playerSpeed.setText(player().setSpeed(history.getSpeed()));
+    }
+
+    private void applyInlineStartPosition() {
+        if (inlineStartPositionApplied || history == null || controller() == null) return;
+        inlineStartPositionApplied = true;
         long position = Math.max(history.getOpening(), history.getPosition());
         if (position > 0) controller().seekTo(position);
-        setInlineScale(getInlineScale());
-        if (service() != null && !player().isEmpty()) binding.playerSpeed.setText(player().setSpeed(history.getSpeed()));
     }
 
     @Override
@@ -3096,6 +3102,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         if (state == Player.STATE_READY) {
             binding.playerProgress.setVisibility(View.GONE);
             hideInlineControls();
+            player().reset();
+            applyInlineStartPosition();
             updateInlineButtons(player().isPlaying());
             applyInlineShortDramaMode();
         }
