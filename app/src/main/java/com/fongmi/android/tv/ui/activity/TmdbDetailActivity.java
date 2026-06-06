@@ -698,7 +698,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         inlineGestureSpeed = player().getSpeed();
         binding.gestureSpeed.setVisibility(View.VISIBLE);
         binding.gestureSpeed.startAnimation(ResUtil.getAnim(R.anim.forward));
-        binding.playerSpeed.setText(player().setSpeed(PlayerSetting.getSpeed()));
+        setInlineSpeed(PlayerSetting.getSpeed());
         hideInlineControls();
     }
 
@@ -707,7 +707,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.gestureSpeed.clearAnimation();
         if (!isInlinePlayerMode() || service() == null || player() == null || player().isEmpty()) return;
         float speed = history == null ? inlineGestureSpeed : history.getSpeed();
-        binding.playerSpeed.setText(player().setSpeed(speed));
+        setInlineSpeed(speed);
     }
 
     @Override
@@ -2367,6 +2367,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         inlineStartPositionApplied = false;
         player().switchPlayer(history == null ? PlayerSetting.getPlayer() : history.getPlayerOrDefault());
         updateInlineHistoryPlayer();
+        setInlineSpeed(history == null ? 1.0f : history.getSpeed());
         updateInlineButtons(false);
         Site site = getCurrentSite();
         ensureInlineDanmakuController();
@@ -2509,7 +2510,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void updateInlineButtons(boolean playing) {
         if (!isInlinePlayerMode() || inlineControlController == null) return;
-        binding.playerSpeed.setText(service() == null || player().isEmpty() ? getString(R.string.play_speed) : player().getSpeedText());
+        setInlineSpeedText(service() == null || player().isEmpty() ? getString(R.string.play_speed) : player().getSpeedText());
         binding.playerDecode.setText(service() == null ? getString(R.string.play_decode) : player().getDecodeText());
         binding.playerExternal.setText(service() == null ? getString(R.string.play_exo) : player().getPlayerText());
         binding.playerScale.setText(scaleLabel());
@@ -2844,13 +2845,27 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void changeInlineSpeed() {
         if (service() == null || player().isEmpty()) return;
-        binding.playerSpeed.setText(player().addSpeed());
+        setInlineSpeedText(player().addSpeed());
         if (history != null) history.setSpeed(player().getSpeed());
+    }
+
+    private void setInlineSpeed(float speed) {
+        if (service() == null || player() == null || player().isReleased()) return;
+        setInlineSpeedText(player().setSpeed(normalizeInlineSpeed(speed)));
+    }
+
+    private float normalizeInlineSpeed(float speed) {
+        return speed >= 0.25f && speed <= 5.0f ? speed : 1.0f;
+    }
+
+    private void setInlineSpeedText(CharSequence text) {
+        binding.playerSpeed.setText(text);
+        if (Util.isMobile() && detailActionRoot != null) detailActionView(R.id.speed, TextView.class).setText(text);
     }
 
     private boolean resetInlineSpeed() {
         if (service() == null || player().isEmpty()) return false;
-        binding.playerSpeed.setText(player().toggleSpeed());
+        setInlineSpeedText(player().toggleSpeed());
         if (history != null) history.setSpeed(player().getSpeed());
         return true;
     }
@@ -3554,7 +3569,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     protected void onPrepare() {
         setInlineScale(getInlineScale());
         prepareInlineStartPosition();
-        if (history != null && service() != null && !player().isEmpty()) binding.playerSpeed.setText(player().setSpeed(history.getSpeed()));
+        if (history != null && service() != null && !player().isEmpty()) setInlineSpeed(history.getSpeed());
     }
 
     private long getInlineResumePosition() {
