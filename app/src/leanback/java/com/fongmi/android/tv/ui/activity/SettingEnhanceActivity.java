@@ -76,16 +76,16 @@ public class SettingEnhanceActivity extends BaseActivity {
         mBinding.driveCheckText.setText(getSwitch(Setting.isDriveCheck()));
         mBinding.debugLogText.setText(getSwitch(Setting.isDebugLog()));
         mBinding.managePageText.setText(R.string.manage_page_web);
-        mBinding.shellProxyText.setText(getSwitch(Setting.isShellProxy()));
+        int proxyRuleCount = ProxySetting.count();
+        mBinding.shellProxyText.setText(getSwitch(Setting.isShellProxy()) + " · " + getString(R.string.setting_proxy_rule_count, proxyRuleCount));
         mBinding.shellProxyConfig.setVisibility(Setting.isShellProxy() ? View.VISIBLE : View.GONE);
-        mBinding.shellProxyConfigText.setText(getShellProxyConfigText());
+        mBinding.shellProxyConfigText.setText(getShellProxyConfigText(proxyRuleCount));
         CustomCspSetting.Registry registry = CustomCspSetting.load();
         CustomCspSetting.Count count = CustomCspSetting.count();
         mBinding.customCspText.setText(getSwitch(registry.isEnabled()) + " · " + getString(R.string.setting_custom_csp_count, count.active(), count.enabled()));
     }
 
-    private String getShellProxyConfigText() {
-        int count = ProxySetting.getRules().size();
+    private String getShellProxyConfigText(int count) {
         return count > 0 ? getString(R.string.setting_proxy_rule_count, count) : Setting.getShellProxyUrl();
     }
 
