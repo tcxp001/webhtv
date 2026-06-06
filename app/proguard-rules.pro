@@ -30,6 +30,21 @@
 -keep class com.github.catvod.crawler.** { *; }
 -keep class * extends com.github.catvod.crawler.Spider
 
+# Danmaku hook compatibility for TMDB inline playback
+-keep class com.fongmi.android.tv.ui.activity.TmdbDetailActivity {
+    private com.fongmi.android.tv.databinding.ActivityTmdbDetailBinding mBinding;
+    private com.fongmi.android.tv.bean.History mHistory;
+    private java.lang.String getKey();
+    private java.lang.String getId();
+    private java.lang.String getName();
+    private java.lang.String getPic();
+    private java.lang.String getMark();
+    private com.fongmi.android.tv.bean.Site getSite();
+    private com.fongmi.android.tv.bean.Flag getFlag();
+    private com.fongmi.android.tv.bean.Episode getEpisode();
+    private com.fongmi.android.tv.bean.History getHistory();
+}
+
 # Jianpian
 -keep class com.p2p.** { *; }
 

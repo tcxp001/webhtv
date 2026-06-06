@@ -158,8 +158,12 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private final List<String> tmdbEpisodePhotos = new ArrayList<>();
 
     private ActivityTmdbDetailBinding binding;
+    @androidx.annotation.Keep
+    private ActivityTmdbDetailBinding mBinding;
     private Vod vod;
     private History history;
+    @androidx.annotation.Keep
+    private History mHistory;
     private TmdbConfig tmdbConfig;
     private TmdbBundle activeTmdbBundle;
     private TmdbItem initialTmdbItem;
@@ -292,7 +296,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     @Override
     protected androidx.viewbinding.ViewBinding getBinding() {
-        return binding = ActivityTmdbDetailBinding.inflate(getLayoutInflater());
+        return mBinding = binding = ActivityTmdbDetailBinding.inflate(getLayoutInflater());
     }
 
     @Override
@@ -342,6 +346,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         matchedTmdbItem = null;
         matchedTmdbDetail = null;
         history = null;
+        mHistory = null;
         selectedFlag = null;
         selectedEpisode = null;
         inlineStarted = false;
@@ -509,8 +514,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.playerPanel.setOnFocusChangeListener((view, focused) -> updatePlayerPanelFocus());
         setupInlineControlFocus();
         setupInlineFocusNavigation();
-        binding.playerPrev.setOnClickListener(view -> playAdjacentEpisode(-1));
-        binding.playerNext.setOnClickListener(view -> playAdjacentEpisode(1));
+        binding.playerPrev.setOnClickListener(view -> checkInlinePrev());
+        binding.playerNext.setOnClickListener(view -> checkInlineNext());
         binding.playerQuality.setOnClickListener(view -> showInlineQuality());
         binding.playerParse.setOnClickListener(view -> cycleInlineParse());
         binding.playerSpeed.setOnClickListener(view -> changeInlineSpeed());
@@ -558,8 +563,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.playerControls.setVisibility(View.GONE);
         detailControlView(R.id.back, View.class).setOnClickListener(view -> onInlineBack());
         detailControlView(R.id.play, View.class).setOnClickListener(view -> toggleInlinePlayback());
-        detailControlView(R.id.prev, View.class).setOnClickListener(view -> playAdjacentEpisode(-1));
-        detailControlView(R.id.next, View.class).setOnClickListener(view -> playAdjacentEpisode(1));
+        detailControlView(R.id.prev, View.class).setOnClickListener(view -> checkInlinePrev());
+        detailControlView(R.id.next, View.class).setOnClickListener(view -> checkInlineNext());
         detailControlView(R.id.fullscreen, View.class).setOnClickListener(view -> toggleInlineFullscreen());
         detailControlView(R.id.cast, View.class).setOnClickListener(view -> onInlineCast());
         detailControlView(R.id.info, View.class).setOnClickListener(view -> onInlineInfo());
@@ -752,14 +757,14 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     public void onFlingUp() {
         if (!isInlinePlayerMode() || selectedFlag == null || selectedFlag.getEpisodes() == null) return;
         if (selectedFlag.getEpisodes().size() == 1) refreshInlinePlayback();
-        else playAdjacentEpisode(1);
+        else checkInlineNext();
     }
 
     @Override
     public void onFlingDown() {
         if (!isInlinePlayerMode() || selectedFlag == null || selectedFlag.getEpisodes() == null) return;
         if (selectedFlag.getEpisodes().size() == 1) refreshInlinePlayback();
-        else playAdjacentEpisode(-1);
+        else checkInlinePrev();
     }
 
     @Override
@@ -1891,6 +1896,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             history.findEpisode(vod.getFlags());
         }
         if (!TextUtils.isEmpty(getMarkText())) history.setVodRemarks(getMarkText());
+        syncDanmakuCompatHistory();
         updatePlayLabel();
     }
 
@@ -2284,6 +2290,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         saved.setEpisodeUrl(selectedEpisode.getUrl());
         saved.save();
         history = saved;
+        syncDanmakuCompatHistory();
         RefreshEvent.history();
     }
 
@@ -2407,6 +2414,12 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         if (isFinishing() || isDestroyed() || service() == null || player() == null || !inlineStarted || result != currentInlineResult || !isOwner()) return;
         if (DanmakuSetting.isSpiderFirst() && !result.getDanmaku().isEmpty()) player().addDanmaku(danmaku);
         else player().setDanmaku(danmaku);
+        refreshInlineDanmakuButtons();
+    }
+
+    private void refreshInlineDanmakuButtons() {
+        if (!isInlinePlayerMode() || service() == null || player() == null || player().isEmpty()) return;
+        updateInlineButtons(player().isPlaying());
     }
 
     private void showInlineError(String text) {
@@ -3487,18 +3500,51 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void playAdjacentEpisode(int direction) {
-        if (selectedFlag == null || selectedEpisode == null || selectedFlag.getEpisodes() == null) return;
+        playAdjacentEpisode(direction, true);
+    }
+
+    private boolean playAdjacentEpisode(int direction, boolean notify) {
+        if (selectedFlag == null || selectedEpisode == null || selectedFlag.getEpisodes() == null) return false;
         List<Episode> episodes = selectedFlag.getEpisodes();
         int index = episodes.indexOf(selectedEpisode);
         int next = index + direction;
         if (index < 0 || next < 0 || next >= episodes.size()) {
-            Notify.show(direction > 0 ? R.string.error_play_next : R.string.error_play_prev);
-            return;
+            if (notify) Notify.show(direction > 0 ? R.string.error_play_next : R.string.error_play_prev);
+            return false;
         }
         selectedEpisode = episodes.get(next);
         selectedSeasonNumber = seasonForEpisode(selectedEpisode, episodes);
         renderEpisodes();
         onPlay();
+        return true;
+    }
+
+    private void checkInlineNext() {
+        checkInlineNext(true);
+    }
+
+    private void checkInlineNext(boolean notify) {
+        if (history != null && history.isRevPlay()) onInlinePrev(notify);
+        else onInlineNext(notify);
+    }
+
+    private void checkInlinePrev() {
+        if (history != null && history.isRevPlay()) onInlineNext(true);
+        else onInlinePrev(true);
+    }
+
+    private void onInlineNext(boolean notify) {
+        if (playAdjacentEpisode(1, false)) return;
+        if (notify) Notify.show(history != null && history.isRevPlay() ? R.string.error_play_prev : R.string.error_play_next);
+    }
+
+    private void onInlinePrev(boolean notify) {
+        if (playAdjacentEpisode(-1, false)) return;
+        if (notify) Notify.show(history != null && history.isRevPlay() ? R.string.error_play_next : R.string.error_play_prev);
+    }
+
+    private void checkInlineEnded(boolean notify) {
+        checkInlineNext(notify);
     }
 
     private MediaMetadata buildMetadata() {
@@ -3671,6 +3717,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             updateInlineButtons(player().isPlaying());
             applyInlineShortDramaMode();
         }
+        if (state == Player.STATE_ENDED) checkInlineEnded(true);
         updateInlineDisplayPanel();
     }
 
@@ -3693,14 +3740,18 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (resultCode == RESULT_OK && requestCode == 1001) PlayerHelper.onExternalResult(data, () -> playAdjacentEpisode(1), controller()::seekTo);
+        if (resultCode == RESULT_OK && requestCode == 1001) PlayerHelper.onExternalResult(data, service()::dispatchNext, controller()::seekTo);
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onRefreshEvent(RefreshEvent event) {
         if (!inlineStarted || service() == null || player() == null || player().isEmpty() || !isOwner()) return;
-        if (event.getType() == RefreshEvent.Type.DANMAKU) player().setDanmaku(Danmaku.from(event.getPath()));
-        else if (event.getType() == RefreshEvent.Type.SUBTITLE) player().setSub(Sub.from(event.getPath()));
+        if (event.getType() == RefreshEvent.Type.DANMAKU) {
+            player().setDanmaku(Danmaku.from(event.getPath()));
+            refreshInlineDanmakuButtons();
+        } else if (event.getType() == RefreshEvent.Type.SUBTITLE) {
+            player().setSub(Sub.from(event.getPath()));
+        }
     }
 
     @Override
@@ -3766,10 +3817,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         }
         updateInlineHistoryPlayer();
         if (canUpdateProgress && history.canSave() && history.canSync()) syncInlineHistory();
-        if (canUpdateProgress && history.getEnding() > 0 && duration > 0 && history.getEnding() + position >= duration) {
-            if (hasAdjacentEpisode(1)) playAdjacentEpisode(1);
-            else if (controller() != null) controller().pause();
-        }
+        if (canUpdateProgress && history.getEnding() > 0 && duration > 0 && history.getEnding() + position >= duration) checkInlineEnded(false);
         if (isInlineControlsVisible()) updateMobileInlineControlTime();
         updateInlineDisplayPanel();
     }
@@ -3777,12 +3825,12 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private final PlaybackService.NavigationCallback mNavigationCallback = new PlaybackService.NavigationCallback() {
         @Override
         public void onNext() {
-            playAdjacentEpisode(1);
+            checkInlineNext();
         }
 
         @Override
         public void onPrev() {
-            playAdjacentEpisode(-1);
+            checkInlinePrev();
         }
 
         @Override
@@ -3807,7 +3855,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         }
         saved.setCid(VodConfig.getCid());
         saved.setVodName(playbackHistoryName());
-        if (!isHistoryEpisode(selectedEpisode, saved)) saved.setPosition(androidx.media3.common.C.TIME_UNSET);
+        if (!isSameInlineHistoryEpisode(selectedEpisode, saved)) saved.setPosition(C.TIME_UNSET);
         saved.setVodFlag(selectedFlag.getFlag());
         saved.setVodRemarks(historyEpisodeTitle(selectedEpisode));
         saved.setEpisodeUrl(selectedEpisode.getUrl());
@@ -3815,6 +3863,11 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         if (history != null && history.hasPlayer()) saved.setPlayer(history.getPlayer());
         saved.save();
         history = saved;
+        syncDanmakuCompatHistory();
+    }
+
+    private boolean isSameInlineHistoryEpisode(Episode episode, History item) {
+        return item != null && (episode.getUrl().equals(item.getEpisodeUrl()) || episode.matchesName(item.getEpisode()));
     }
 
     private void onKeep() {
@@ -4623,6 +4676,56 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private String getHistoryKey() {
         return getKeyText() + AppDatabase.SYMBOL + getIdText() + AppDatabase.SYMBOL + VodConfig.getCid();
+    }
+
+    private void syncDanmakuCompatHistory() {
+        mHistory = history;
+    }
+
+    @androidx.annotation.Keep
+    private String getKey() {
+        return getKeyText();
+    }
+
+    @androidx.annotation.Keep
+    private String getId() {
+        return getIdText();
+    }
+
+    @androidx.annotation.Keep
+    private String getName() {
+        return getNameText();
+    }
+
+    @androidx.annotation.Keep
+    private String getPic() {
+        return getPicText();
+    }
+
+    @androidx.annotation.Keep
+    private String getMark() {
+        return getMarkText();
+    }
+
+    @androidx.annotation.Keep
+    private Site getSite() {
+        Site site = getCurrentSite();
+        return site == null ? new Site() : site;
+    }
+
+    @androidx.annotation.Keep
+    private Flag getFlag() {
+        return selectedFlag == null ? new Flag() : selectedFlag;
+    }
+
+    @androidx.annotation.Keep
+    private Episode getEpisode() {
+        return selectedEpisode == null ? new Episode() : selectedEpisode;
+    }
+
+    @androidx.annotation.Keep
+    private History getHistory() {
+        return mHistory == null ? history : mHistory;
     }
 
     private String getKeyText() {
