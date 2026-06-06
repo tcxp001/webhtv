@@ -179,6 +179,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private boolean autoPlayed;
     private boolean inlineFullscreen;
     private boolean inlineShortDramaMode;
+    private boolean inlinePauseInfo;
     private PlayerGesture inlineGestureDetector;
     private Clock inlineClock;
     private VodPlayerControlController inlineControlController;
@@ -680,6 +681,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     @Override
     public void onSeeking(long time) {
         if (!isInlinePlayerMode() || service() == null || player() == null || player().isEmpty()) return;
+        inlinePauseInfo = false;
         binding.gestureAction.setImageResource(time > 0 ? R.drawable.ic_widget_forward : R.drawable.ic_widget_rewind);
         binding.gestureTime.setText(player().getPositionTime(time));
         binding.gestureDuration.setText(player().getDurationTime());
@@ -690,6 +692,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void showInlinePauseInfo() {
         if (!isInlinePlayerMode() || service() == null || player() == null || player().isEmpty()) return;
+        inlinePauseInfo = true;
         binding.gestureAction.setImageResource(R.drawable.ic_widget_play);
         binding.gestureTime.setText(player().getPositionTime(0));
         binding.gestureDuration.setText(player().getDurationTime());
@@ -698,6 +701,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void hideInlinePauseInfo() {
+        inlinePauseInfo = false;
         binding.gestureSeek.setVisibility(View.GONE);
         updateInlineDisplayPanel();
     }
@@ -782,10 +786,12 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void hideInlineGestureOverlays() {
         if (binding == null) return;
+        inlinePauseInfo = false;
         binding.gestureSeek.setVisibility(View.GONE);
         binding.gestureSpeed.setVisibility(View.GONE);
         binding.gestureBright.setVisibility(View.GONE);
         binding.gestureVolume.setVisibility(View.GONE);
+        updateInlineDisplayPanel();
     }
 
     private boolean onInlineControlTouch(View view, MotionEvent event) {
@@ -2676,8 +2682,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         boolean hasPlayer = isInlinePlayerMode() && service() != null && player() != null && !player().isEmpty();
         boolean centerVisible = binding.gestureSeek.getVisibility() == View.VISIBLE;
         boolean canShow = hasPlayer && inlineControlsView().getVisibility() != View.VISIBLE && binding.playerProgress.getVisibility() != View.VISIBLE && binding.playerError.getVisibility() != View.VISIBLE;
-        boolean showTitle = canShow && PlayerSetting.isDisplayTitle() && !TextUtils.isEmpty(inlineTitleText());
-        boolean showSize = canShow && PlayerSetting.isDisplaySize() && !TextUtils.isEmpty(player().getSizeText());
+        boolean showTitle = canShow && (inlinePauseInfo || PlayerSetting.isDisplayTitle()) && !TextUtils.isEmpty(inlineTitleText());
+        boolean showSize = canShow && (inlinePauseInfo || PlayerSetting.isDisplaySize()) && !TextUtils.isEmpty(player().getSizeText());
         boolean showProgress = !centerVisible && canShow && PlayerSetting.isDisplayProgress() && player().getDuration() > 0;
         boolean showMini = !centerVisible && !showProgress && canShow && PlayerSetting.isDisplayMini() && player().getDuration() > 0;
         binding.playerDisplayTitle.setText(inlineTitleText());
@@ -2687,7 +2693,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.playerDisplaySize.setVisibility(showSize ? View.VISIBLE : View.GONE);
         binding.playerDisplayTopLeft.setVisibility(showTitle || showSize ? View.VISIBLE : View.GONE);
         binding.playerDisplayClock.setText(TIME_FORMAT.format(LocalDateTime.now()));
-        binding.playerDisplayClock.setVisibility(canShow && PlayerSetting.isDisplayTime() ? View.VISIBLE : View.GONE);
+        binding.playerDisplayClock.setVisibility(canShow && (inlinePauseInfo || PlayerSetting.isDisplayTime()) ? View.VISIBLE : View.GONE);
         if (!centerVisible && canShow && PlayerSetting.isDisplayTraffic()) Traffic.setSpeed(binding.playerDisplayTraffic);
         else binding.playerDisplayTraffic.setVisibility(View.GONE);
         binding.playerDisplayBottomProgress.setVisibility(showProgress ? View.VISIBLE : View.GONE);
