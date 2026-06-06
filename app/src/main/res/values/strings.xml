@@ -486,6 +486,10 @@
     <string name="detail_person_works">Works</string>
     <string name="detail_person_work_hint">Works are from TMDB. Select one to search it in the current source.</string>
     <string name="detail_person_work_count">%1$d works</string>
+    <string name="detail_person_score_title">Overall Score</string>
+    <string name="detail_person_score_value">%1$d</string>
+    <string name="detail_person_score_meta">Focus: %1$s\nCast %2$d · Director %3$d · Crew %4$d\nWork avg %5$s</string>
+    <string name="detail_person_score_meta_inline">Focus %1$s · Cast %2$d · Director %3$d · Crew %4$d · Avg %5$s</string>
     <string name="detail_filter_all">All</string>
     <string name="detail_filter_cast">Cast</string>
     <string name="detail_filter_crew">Crew</string>

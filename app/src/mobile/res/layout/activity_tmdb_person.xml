@@ -65,8 +65,8 @@
                 android:orientation="horizontal">
 
                 <com.google.android.material.card.MaterialCardView
-                    android:layout_width="116dp"
-                    android:layout_height="164dp"
+                    android:layout_width="120dp"
+                    android:layout_height="170dp"
                     app:cardBackgroundColor="#25313D"
                     app:cardCornerRadius="8dp"
                     app:cardElevation="0dp"
@@ -93,7 +93,7 @@
                         android:layout_height="wrap_content"
                         android:maxLines="2"
                         android:textColor="@android:color/white"
-                        android:textSize="24sp"
+                        android:textSize="23sp"
                         android:textStyle="bold" />
 
                     <com.google.android.material.textview.MaterialTextView
@@ -120,6 +120,51 @@
                         android:lineSpacingExtra="4dp"
                         android:textColor="#B3FFFFFF"
                         android:textSize="12sp" />
+
+                    <LinearLayout
+                        android:id="@+id/scoreGroup"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <com.google.android.material.textview.MaterialTextView
+                                android:id="@+id/scoreTitle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/detail_person_score_title"
+                                android:textColor="@android:color/white"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+
+                            <com.google.android.material.textview.MaterialTextView
+                                android:id="@+id/scoreValue"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:textColor="@android:color/white"
+                                android:textSize="24sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <com.google.android.material.textview.MaterialTextView
+                            android:id="@+id/scoreMeta"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:lineSpacingExtra="2dp"
+                            android:maxLines="3"
+                            android:textColor="#B3FFFFFF"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
                 </LinearLayout>
             </LinearLayout>
 
@@ -133,7 +178,7 @@
                     android:id="@+id/biography"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
+                    android:layout_marginTop="18dp"
                     android:lineSpacingExtra="4dp"
                     android:textColor="#DDEAF2F8"
                     android:textSize="13sp" />

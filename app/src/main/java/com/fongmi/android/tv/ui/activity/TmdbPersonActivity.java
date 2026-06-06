@@ -53,12 +53,16 @@ import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Task;
 import com.fongmi.android.tv.utils.Util;
 import com.google.android.material.button.MaterialButton;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 public class TmdbPersonActivity extends BaseActivity {
 
@@ -217,7 +221,8 @@ public class TmdbPersonActivity extends BaseActivity {
                 List<TmdbItem> cast = tmdbService.personCastWorks(detail, tmdbConfig);
                 List<TmdbItem> crew = tmdbService.personCrewWorks(detail, tmdbConfig);
                 List<TmdbItem> all = tmdbService.personWorks(detail, tmdbConfig);
-                runOnUiThread(() -> bindPerson(profile, photos, all, cast, crew));
+                PersonScore score = personScore(detail);
+                runOnUiThread(() -> bindPerson(profile, photos, all, cast, crew, score));
             } catch (Throwable e) {
                 runOnUiThread(() -> {
                     binding.progress.setVisibility(View.GONE);
@@ -227,7 +232,7 @@ public class TmdbPersonActivity extends BaseActivity {
         });
     }
 
-    private void bindPerson(TmdbPerson profile, List<String> photos, List<TmdbItem> all, List<TmdbItem> cast, List<TmdbItem> crew) {
+    private void bindPerson(TmdbPerson profile, List<String> photos, List<TmdbItem> all, List<TmdbItem> cast, List<TmdbItem> crew, PersonScore score) {
         if (isFinishing() || isDestroyed()) return;
         binding.progress.setVisibility(View.GONE);
         binding.name.setText(profile.getName());
@@ -250,8 +255,26 @@ public class TmdbPersonActivity extends BaseActivity {
         binding.photosTitle.setVisibility(photos.isEmpty() ? View.GONE : View.VISIBLE);
         binding.photos.setVisibility(photos.isEmpty() ? View.GONE : View.VISIBLE);
         photoAdapter.setItems(photos);
+        bindScore(score);
         refreshFilterButtons();
         setFilter(filter);
+    }
+
+    private void bindScore(PersonScore score) {
+        if (score == null || score.totalWorks() <= 0) {
+            binding.scoreGroup.setVisibility(View.GONE);
+            return;
+        }
+        binding.scoreGroup.setVisibility(View.VISIBLE);
+        binding.scoreValue.setText(getString(R.string.detail_person_score_value, score.score()));
+        binding.scoreMeta.setText(getString(
+                R.string.detail_person_score_meta,
+                score.focus(),
+                score.castCount(),
+                score.directorCount(),
+                score.productionCount(),
+                score.averageVote() > 0 ? String.format(Locale.US, "%.1f", score.averageVote()) : "--"
+        ));
     }
 
     private void setFilter(String value) {
@@ -351,6 +374,109 @@ public class TmdbPersonActivity extends BaseActivity {
         return credit.contains("director") || credit.contains("directing") || credit.contains("导演");
     }
 
+    private PersonScore personScore(JsonObject detail) {
+        Set<String> cast = new HashSet<>();
+        Set<String> director = new HashSet<>();
+        Set<String> production = new HashSet<>();
+        Set<String> rated = new HashSet<>();
+        double voteTotal = 0;
+        double roleVoteTotal = 0;
+        double roleVoteWeight = 0;
+        for (JsonElement element : array(detail, "combined_credits", "cast")) {
+            if (!element.isJsonObject()) continue;
+            JsonObject object = element.getAsJsonObject();
+            String key = creditKey(object);
+            if (TextUtils.isEmpty(key)) continue;
+            cast.add(key);
+            double vote = voteAverage(object);
+            if (vote > 0) {
+                roleVoteTotal += vote;
+                roleVoteWeight += 1.0;
+            }
+            if (vote > 0 && rated.add(key)) voteTotal += vote;
+        }
+        for (JsonElement element : array(detail, "combined_credits", "crew")) {
+            if (!element.isJsonObject()) continue;
+            JsonObject object = element.getAsJsonObject();
+            String key = creditKey(object);
+            if (TextUtils.isEmpty(key)) continue;
+            boolean directorCredit = isDirectorCredit(object);
+            if (directorCredit) director.add(key);
+            else production.add(key);
+            double vote = voteAverage(object);
+            if (vote > 0) {
+                double weight = directorCredit ? 2.0 : 1.3;
+                roleVoteTotal += vote * weight;
+                roleVoteWeight += weight;
+            }
+            if (vote > 0 && rated.add(key)) voteTotal += vote;
+        }
+        int castCount = cast.size();
+        int directorCount = director.size();
+        int productionCount = production.size();
+        double averageVote = rated.isEmpty() ? 0 : voteTotal / rated.size();
+        double castWeight = castCount;
+        double directorWeight = directorCount * 2.0;
+        double productionWeight = productionCount * 1.3;
+        double weightedCount = castWeight + directorWeight + productionWeight;
+        double weightedVote = roleVoteWeight <= 0 ? 0 : roleVoteTotal / roleVoteWeight;
+        int experience = (int) Math.round(32 * (1 - Math.exp(-weightedCount / 15.0)));
+        int quality = weightedVote <= 0 ? 0 : (int) Math.round(58 * Math.max(0, Math.min(10, weightedVote)) / 10.0);
+        double leadingWeight = Math.max(castWeight, Math.max(directorWeight, productionWeight));
+        int leadingCount = leadingWeight == castWeight ? castCount : leadingWeight == directorWeight ? directorCount : productionCount;
+        int focusBonus = weightedCount <= 0 ? 0 : (int) Math.round(10 * (leadingWeight / weightedCount) * (1 - Math.exp(-leadingCount / 8.0)));
+        int score = Math.max(0, Math.min(100, experience + quality + focusBonus));
+        return new PersonScore(score, scoreFocus(castWeight, directorWeight, productionWeight), castCount, directorCount, productionCount, averageVote);
+    }
+
+    private String scoreFocus(double castWeight, double directorWeight, double productionWeight) {
+        if (castWeight <= 0 && directorWeight <= 0 && productionWeight <= 0) return getString(R.string.detail_filter_all);
+        if (directorWeight >= castWeight && directorWeight >= productionWeight) return getString(R.string.detail_filter_director);
+        if (productionWeight >= castWeight && productionWeight >= directorWeight) return getString(R.string.detail_filter_crew);
+        return getString(R.string.detail_filter_cast);
+    }
+
+    private boolean isDirectorCredit(JsonObject object) {
+        String credit = (string(object, "job") + " " + string(object, "department")).toLowerCase(Locale.ROOT);
+        return credit.contains("director") || credit.contains("directing") || credit.contains("导演");
+    }
+
+    private String creditKey(JsonObject object) {
+        if (object == null || !object.has("id") || object.get("id").isJsonNull()) return "";
+        String mediaType = string(object, "media_type");
+        if (TextUtils.isEmpty(mediaType)) mediaType = "unknown";
+        return mediaType + ":" + object.get("id").getAsInt();
+    }
+
+    private double voteAverage(JsonObject object) {
+        try {
+            return object != null && object.has("vote_average") && !object.get("vote_average").isJsonNull() ? object.get("vote_average").getAsDouble() : 0;
+        } catch (Throwable e) {
+            return 0;
+        }
+    }
+
+    private JsonArray array(JsonObject object, String... keys) {
+        JsonElement current = object;
+        for (String key : keys) {
+            if (current == null || !current.isJsonObject()) return new JsonArray();
+            JsonObject currentObject = current.getAsJsonObject();
+            if (!currentObject.has(key) || currentObject.get(key).isJsonNull()) return new JsonArray();
+            current = currentObject.get(key);
+        }
+        return current != null && current.isJsonArray() ? current.getAsJsonArray() : new JsonArray();
+    }
+
+    private String string(JsonObject object, String... keys) {
+        for (String key : keys) {
+            if (object != null && object.has(key) && !object.get(key).isJsonNull()) {
+                String value = object.get(key).getAsString();
+                if (!TextUtils.isEmpty(value)) return value.trim();
+            }
+        }
+        return "";
+    }
+
     private void updateFilters() {
         updateFilter(binding.filterAll, "all");
         updateFilter(binding.filterCast, "cast");
@@ -380,10 +506,13 @@ public class TmdbPersonActivity extends BaseActivity {
         tint(binding.name, primary);
         tint(binding.pageTitle, primary);
         tint(binding.personalTitle, primary);
+        tint(binding.scoreTitle, primary);
+        tint(binding.scoreValue, primary);
         tint(binding.photosTitle, primary);
         tint(binding.worksTitle, primary);
         tint(binding.subtitle, secondary);
         tint(binding.personalInfo, secondary);
+        tint(binding.scoreMeta, secondary);
         tint(binding.worksCount, secondary);
         tint(binding.empty, secondary);
         binding.biography.setTextColor(light ? 0xDD12202D : 0xDDEAF2F8);
@@ -575,5 +704,12 @@ public class TmdbPersonActivity extends BaseActivity {
     }
 
     private record FilterButton(String key, MaterialButton button, int count) {
+    }
+
+    private record PersonScore(int score, String focus, int castCount, int directorCount, int productionCount, double averageVote) {
+
+        private int totalWorks() {
+            return castCount + directorCount + productionCount;
+        }
     }
 }

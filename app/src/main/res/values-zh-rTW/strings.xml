@@ -481,6 +481,10 @@
     <string name="detail_person_works">參與作品</string>
     <string name="detail_person_work_hint">作品來自 TMDB，選擇後會在目前站源搜尋。</string>
     <string name="detail_person_work_count">%1$d 部作品</string>
+    <string name="detail_person_score_title">綜合得分</string>
+    <string name="detail_person_score_value">%1$d</string>
+    <string name="detail_person_score_meta">主攻：%1$s\n出演 %2$d · 導演 %3$d · 製作 %4$d\n作品均分 %5$s</string>
+    <string name="detail_person_score_meta_inline">主攻 %1$s · 出演 %2$d · 導演 %3$d · 製作 %4$d · 均分 %5$s</string>
     <string name="detail_filter_all">全部</string>
     <string name="detail_filter_cast">出演</string>
     <string name="detail_filter_crew">製作</string>

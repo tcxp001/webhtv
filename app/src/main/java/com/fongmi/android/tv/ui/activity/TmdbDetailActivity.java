@@ -30,6 +30,8 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
@@ -197,6 +199,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private int selectedSeasonNumber = -1;
     private int playerIndex = -1;
     private int requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
+    private int headerBarBasePaddingTop = -1;
+    private int statusBarInsetTop;
     private int detailThemeMode;
     private int loadGeneration;
     private boolean episodeGridMode;
@@ -316,6 +320,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         tmdbConfig = TmdbConfig.objectFrom(Setting.getTmdbConfig());
         initialTmdbItem = getIntentTmdbItem();
         detailThemeMode = Setting.getTmdbDetailTheme();
+        applySystemBarInsets();
         initPage();
         loadContent(null);
     }
@@ -452,6 +457,23 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.relatedList.setNestedScrollingEnabled(false);
         binding.relatedList.setAdapter(relatedAdapter);
         applyDetailTheme();
+    }
+
+    private void applySystemBarInsets() {
+        if (headerBarBasePaddingTop < 0) headerBarBasePaddingTop = binding.headerBar.getPaddingTop();
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root, (view, insets) -> {
+            int top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
+            statusBarInsetTop = top;
+            binding.headerBar.setPadding(
+                    binding.headerBar.getPaddingLeft(),
+                    headerBarBasePaddingTop + top,
+                    binding.headerBar.getPaddingRight(),
+                    binding.headerBar.getPaddingBottom()
+            );
+            if (!isCinemaMode()) setHeightDp(binding.heroSpacer, defaultHeroSpacerHeightDp());
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(binding.root);
     }
 
     private void initFusionPlayer() {
@@ -862,7 +884,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void applyDefaultDetailTemplate() {
         setPaddingDp(binding.pageContent, 0, 0, 0, 28);
-        setHeightDp(binding.heroSpacer, isFusionMode() ? 0 : 102);
+        setHeightDp(binding.heroSpacer, defaultHeroSpacerHeightDp());
         setWidthMatch(binding.contentPanel);
         setWidthMatch(binding.tmdbSection);
         setMarginsDp(binding.contentPanel, 16, 0, 16, 0);
@@ -888,6 +910,13 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         setHeightDp(binding.castList, 180);
         setHeightDp(binding.creatorList, 180);
         setHeightDp(binding.relatedList, 262);
+    }
+
+    private int defaultHeroSpacerHeightDp() {
+        if (isFusionMode()) return 0;
+        if (!Util.isMobile()) return 102;
+        int insetDp = Math.round(statusBarInsetTop / getResources().getDisplayMetrics().density);
+        return Math.max(72, 102 - Math.min(insetDp, 30));
     }
 
     private void applyCinemaDetailTemplate() {
