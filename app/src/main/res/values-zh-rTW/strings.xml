@@ -497,9 +497,9 @@
     <string name="detail_tmdb_skip">跳過</string>
     <string name="detail_tmdb_need_key">請先設定 TMDB Token 或 API Key</string>
     <string name="detail_tmdb_site_disabled">目前站源未啟用 TMDB 匹配</string>
-    <string name="detail_theme_auto">自動</string>
-    <string name="detail_theme_dark">深色</string>
-    <string name="detail_theme_light">淺色</string>
+    <string name="detail_theme_auto">主題：自動</string>
+    <string name="detail_theme_dark">主題：深色</string>
+    <string name="detail_theme_light">主題：淺色</string>
     <string name="detail_quality">畫質</string>
     <string name="setting_tmdb">TMDB 設定</string>
     <string name="setting_audio_source">音訊源設定</string>

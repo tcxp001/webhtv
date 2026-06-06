@@ -15,6 +15,7 @@ public class CustomKeyDownVod extends GestureDetector.SimpleOnGestureListener {
 
     private final GestureDetector detector;
     private final Listener listener;
+    private final Runnable seekEnd;
     private boolean changeSpeed;
     private boolean full;
     private long holdTime;
@@ -26,6 +27,7 @@ public class CustomKeyDownVod extends GestureDetector.SimpleOnGestureListener {
     private CustomKeyDownVod(Activity activity) {
         this.detector = new GestureDetector(activity, this);
         this.listener = (Listener) activity;
+        this.seekEnd = () -> listener.onSeekEnd(holdTime);
     }
 
     public boolean onTouchEvent(MotionEvent e) {
@@ -38,7 +40,15 @@ public class CustomKeyDownVod extends GestureDetector.SimpleOnGestureListener {
     }
 
     public boolean hasEvent(KeyEvent event) {
-        return KeyUtil.isEnterKey(event) || KeyUtil.isUpKey(event) || KeyUtil.isDownKey(event) || KeyUtil.isLeftKey(event) || KeyUtil.isRightKey(event);
+        return KeyUtil.isEnterKey(event) || KeyUtil.isUpKey(event) || KeyUtil.isDownKey(event) || hasSeekEvent(event);
+    }
+
+    public boolean hasSeekEvent(KeyEvent event) {
+        return KeyUtil.isSeekBackKey(event) || KeyUtil.isSeekForwardKey(event);
+    }
+
+    public boolean hasMediaSeekEvent(KeyEvent event) {
+        return event.getKeyCode() == KeyEvent.KEYCODE_MEDIA_REWIND || event.getKeyCode() == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD;
     }
 
     public boolean onKeyDown(KeyEvent event) {
@@ -47,12 +57,13 @@ public class CustomKeyDownVod extends GestureDetector.SimpleOnGestureListener {
     }
 
     private void check(KeyEvent event) {
-        if (KeyUtil.isActionDown(event) && KeyUtil.isLeftKey(event)) {
+        if (KeyUtil.isActionDown(event) && KeyUtil.isSeekBackKey(event)) {
             listener.onSeeking(subTime());
-        } else if (KeyUtil.isActionDown(event) && KeyUtil.isRightKey(event)) {
+        } else if (KeyUtil.isActionDown(event) && KeyUtil.isSeekForwardKey(event)) {
             listener.onSeeking(addTime());
-        } else if (KeyUtil.isActionUp(event) && (KeyUtil.isLeftKey(event) || KeyUtil.isRightKey(event))) {
-            App.post(() -> listener.onSeekEnd(holdTime), 250);
+        } else if (KeyUtil.isActionUp(event) && hasSeekEvent(event)) {
+            if (holdTime == 0 && hasMediaSeekEvent(event)) holdTime = KeyUtil.isSeekBackKey(event) ? -Constant.INTERVAL_SEEK : Constant.INTERVAL_SEEK;
+            App.post(seekEnd, 250);
         } else if (KeyUtil.isActionUp(event) && KeyUtil.isUpKey(event)) {
             if (changeSpeed) listener.onSpeedEnd();
             else listener.onKeyUp();

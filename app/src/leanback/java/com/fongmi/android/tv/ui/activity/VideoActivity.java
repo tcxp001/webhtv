@@ -1613,19 +1613,25 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         return mFocus2 == null || mFocus2.getVisibility() != View.VISIBLE || mFocus2 == mBinding.control.action.opening || mFocus2 == mBinding.control.action.ending ? mBinding.control.action.fullscreen : mFocus2;
     }
 
+    private boolean canSeek() {
+        return service() != null && controller() != null && !player().isEmpty();
+    }
+
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (isFullscreen() && KeyUtil.isMenuKey(event)) onToggle();
         if (isVisible(mBinding.control.getRoot())) setR1Callback();
         if (isVisible(mBinding.control.getRoot())) mFocus2 = getCurrentFocus();
+        if (mKeyDown.hasMediaSeekEvent(event) && canSeek()) return mKeyDown.onKeyDown(event);
         if (isFullscreen() && isGone(mBinding.control.getRoot()) && mKeyDown.hasEvent(event) && service() != null) return mKeyDown.onKeyDown(event);
-        if (KeyUtil.isMediaFastForward(event)) return onSeekForward();
-        if (KeyUtil.isMediaRewind(event)) return onSeekBack();
+        if (KeyUtil.isMediaFastForward(event) && canSeek()) return onSeekForward();
+        if (KeyUtil.isMediaRewind(event) && canSeek()) return onSeekBack();
         return super.dispatchKeyEvent(event);
     }
 
     @Override
     public void onSeeking(long time) {
+        if (!canSeek()) return;
         mBinding.widget.center.setVisibility(View.VISIBLE);
         mBinding.widget.duration.setText(player().getDurationTime());
         mBinding.widget.position.setText(player().getPositionTime(time));
@@ -1636,6 +1642,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     @Override
     public void onSeekEnd(long time) {
         mKeyDown.reset();
+        if (!canSeek()) return;
         seekTo(time);
     }
 

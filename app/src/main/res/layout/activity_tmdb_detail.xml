@@ -45,6 +45,7 @@
             android:paddingBottom="28dp">
 
             <LinearLayout
+                android:id="@+id/headerBar"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center_vertical"
@@ -62,6 +63,20 @@
                     android:textColor="@android:color/white"
                     android:textSize="17sp"
                     android:textStyle="bold" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/themeModeTop"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minHeight="40dp"
+                    android:minWidth="96dp"
+                    android:textColor="@android:color/white"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:visibility="gone"
+                    app:backgroundTint="#3A4652"
+                    app:strokeColor="@android:color/transparent" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/rematchTop"

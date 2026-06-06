@@ -502,9 +502,9 @@
     <string name="detail_tmdb_skip">Skip</string>
     <string name="detail_tmdb_need_key">Configure a TMDB token or API key first</string>
     <string name="detail_tmdb_site_disabled">TMDB matching is disabled for this source</string>
-    <string name="detail_theme_auto">Auto</string>
-    <string name="detail_theme_dark">Dark</string>
-    <string name="detail_theme_light">Light</string>
+    <string name="detail_theme_auto">Theme: Auto</string>
+    <string name="detail_theme_dark">Theme: Dark</string>
+    <string name="detail_theme_light">Theme: Light</string>
     <string name="detail_quality">Quality</string>
     <string name="setting_tmdb">TMDB config</string>
     <string name="setting_audio_source">Audio source config</string>

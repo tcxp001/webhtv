@@ -180,6 +180,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private Clock inlineClock;
     private VodPlayerControlController inlineControlController;
     private final Runnable inlineHideControls = this::hideInlineControlsIfIdle;
+    private final Runnable inlineKeySeekEnd = this::onInlineKeySeekEnd;
     private Result pendingInlineResult;
     private Result currentInlineResult;
     private ViewGroup playerParent;
@@ -188,6 +189,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private View detailActionRoot;
     private View inlineControlFocus;
     private long lastInlineControlInteraction;
+    private long inlineKeySeekTime;
     private float inlineGestureSpeed = 1.0f;
     private boolean inlineStartPositionApplied;
     private int selectedSeasonNumber = -1;
@@ -376,14 +378,16 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.changeSourceDetail.setOnClickListener(view -> changeSource());
         binding.changeSource.setOnLongClickListener(view -> openGlobalSourceSearch());
         binding.changeSourceDetail.setOnLongClickListener(view -> openGlobalSourceSearch());
+        binding.themeModeTop.setOnClickListener(view -> cycleThemeMode());
         binding.themeMode.setOnClickListener(view -> cycleThemeMode());
         binding.themeModeDetail.setOnClickListener(view -> cycleThemeMode());
         binding.episodeReverse.setOnClickListener(view -> toggleEpisodeReverse());
         binding.episodeViewMode.setOnClickListener(view -> toggleEpisodeViewMode());
         binding.overview.setOnClickListener(view -> toggleOverview());
         binding.overviewToggle.setOnClickListener(view -> toggleOverview());
-        binding.headerTitle.setText(detailModeTitle());
-        binding.headerTitle.setVisibility(isCinemaMode() ? View.INVISIBLE : View.VISIBLE);
+        if (Util.isMobile()) binding.headerTitle.setText("");
+        else binding.headerTitle.setText(detailModeTitle());
+        binding.headerTitle.setVisibility(Util.isMobile() || !isCinemaMode() ? View.VISIBLE : View.INVISIBLE);
         binding.title.setText(getNameText());
         binding.subtitle.setText("");
         binding.sourceValue.setText(getString(R.string.detail_source_current, getKeyText()));
@@ -394,6 +398,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.heroSpacer.setVisibility(isFusionMode() ? View.GONE : View.VISIBLE);
         binding.keepTop.setVisibility(View.GONE);
         binding.rematchTop.setVisibility(View.GONE);
+        binding.headerBar.setVisibility(Util.isMobile() ? View.VISIBLE : View.GONE);
+        binding.themeModeTop.setVisibility(Util.isMobile() ? View.VISIBLE : View.GONE);
+        binding.themeMode.setVisibility(Util.isMobile() ? View.GONE : View.VISIBLE);
+        binding.themeModeDetail.setVisibility(Util.isMobile() ? View.GONE : View.VISIBLE);
         binding.fusionActions.setVisibility(isFusionMode() ? View.VISIBLE : View.GONE);
         binding.detailActions.setVisibility(isFusionMode() ? View.GONE : View.VISIBLE);
         applyDetailTemplate();
@@ -797,6 +805,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         setButton(binding.rematchFusion, colors.control, colors.line, colors.primary);
         setButton(binding.changeSource, colors.control, colors.line, colors.primary);
         setButton(binding.changeSourceDetail, colors.control, colors.line, colors.primary);
+        setButton(binding.themeModeTop, colors.control, colors.line, colors.primary);
         setButton(binding.themeMode, colors.control, colors.line, colors.primary);
         setButton(binding.themeModeDetail, colors.control, colors.line, colors.primary);
         setButton(binding.episodeReverse, colors.control, colors.line, colors.primary);
@@ -810,6 +819,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.overviewToggle.setTextColor(colors.accent);
         binding.episodeEmpty.setTextColor(colors.secondary);
         binding.tmdbStatus.setTextColor(colors.secondary);
+        binding.themeModeTop.setText(themeModeLabel());
         binding.themeMode.setText(themeModeLabel());
         binding.themeModeDetail.setText(themeModeLabel());
         tintInlineGestureOverlay();
@@ -3379,6 +3389,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             rememberInlineControlFocus();
             setInlineHideCallback();
         }
+        if (handleInlineSeekKey(event)) return true;
         if (!inlineFullscreen || isInlineControlsVisible() || service() == null) return false;
         if (KeyUtil.isMenuKey(event)) {
             showInlineControls(true);
@@ -3394,6 +3405,46 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             return true;
         }
         return false;
+    }
+
+    private boolean handleInlineSeekKey(KeyEvent event) {
+        if (!canInlineKeySeek(event)) return false;
+        if (KeyUtil.isActionDown(event)) {
+            inlineKeySeekTime += KeyUtil.isSeekBackKey(event) ? -Constant.INTERVAL_SEEK : Constant.INTERVAL_SEEK;
+            onSeeking(inlineKeySeekTime);
+            return true;
+        }
+        if (KeyUtil.isActionUp(event)) {
+            if (inlineKeySeekTime == 0) inlineKeySeekTime = KeyUtil.isSeekBackKey(event) ? -Constant.INTERVAL_SEEK : Constant.INTERVAL_SEEK;
+            App.post(inlineKeySeekEnd, 250);
+            return true;
+        }
+        return true;
+    }
+
+    private boolean canInlineKeySeek(KeyEvent event) {
+        if (!canInlineSeek() || !isInlineSeekKey(event)) return false;
+        if (isInlineMediaSeekKey(event)) return true;
+        return !isInlineControlsVisible() && (inlineFullscreen || getCurrentFocus() == binding.playerPanel);
+    }
+
+    private boolean canInlineSeek() {
+        return isInlinePlayerMode() && inlineStarted && service() != null && controller() != null && player() != null && !player().isEmpty();
+    }
+
+    private boolean isInlineSeekKey(KeyEvent event) {
+        return KeyUtil.isSeekBackKey(event) || KeyUtil.isSeekForwardKey(event);
+    }
+
+    private boolean isInlineMediaSeekKey(KeyEvent event) {
+        return event.getKeyCode() == KeyEvent.KEYCODE_MEDIA_REWIND || event.getKeyCode() == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD;
+    }
+
+    private void onInlineKeySeekEnd() {
+        long time = inlineKeySeekTime;
+        inlineKeySeekTime = 0;
+        onSeekEnd(time);
+        hideInlineGestureOverlays();
     }
 
     @Override
