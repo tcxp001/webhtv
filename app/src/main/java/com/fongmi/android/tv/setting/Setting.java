@@ -133,6 +133,14 @@ public class Setting {
         Prefers.put("home_vod_auto_load", autoLoad);
     }
 
+    public static boolean isPlayBackToDetail() {
+        return Prefers.getBoolean("play_back_to_detail");
+    }
+
+    public static void putPlayBackToDetail(boolean backToDetail) {
+        Prefers.put("play_back_to_detail", backToDetail);
+    }
+
     public static boolean isDriveCheck() {
         return Prefers.getBoolean("drive_check", true);
     }

@@ -9,4 +9,5 @@
     <item name="battery" type="id" />
     <item name="actionQuality" type="id" />
     <item name="episodes" type="id" />
+    <item name="right" type="id" />
 </resources>

@@ -141,6 +141,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private static final int SHORT_DRAMA_SCALE = 0;
     private static final int SHORT_DRAMA_FRAME_WIDTH = 9;
     private static final int SHORT_DRAMA_FRAME_HEIGHT = 16;
+    private static final int INLINE_SIDE_CONTROL_MARGIN_DP = 4;
+    private static final int INLINE_SIDE_CONTROL_FULLSCREEN_MARGIN_DP = 48;
+    private static final float NORMAL_SPEED = 1.0f;
     private static final Pattern SOURCE_SEASON = Pattern.compile("(?i)(?:第\\s*([零一二三四五六七八九十两0-9]+)\\s*[季部]|season\\s*([0-9]{1,2})|s([0-9]{1,2})(?:[-._\\s]*e[0-9]{1,3})?)");
 
     private final TmdbService tmdbService = new TmdbService();
@@ -1996,8 +1999,13 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             history.findEpisode(vod.getFlags());
         }
         if (!TextUtils.isEmpty(getMarkText())) history.setVodRemarks(getMarkText());
+        resetInitialPlaybackSpeed();
         syncDanmakuCompatHistory();
         updatePlayLabel();
+    }
+
+    private void resetInitialPlaybackSpeed() {
+        if (history != null) history.setSpeed(NORMAL_SPEED);
     }
 
     private void updatePlayLabel() {
@@ -2508,7 +2516,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         inlineStartPositionApplied = false;
         player().switchPlayer(history == null ? PlayerSetting.getPlayer() : history.getPlayerOrDefault());
         updateInlineHistoryPlayer();
-        setInlineSpeed(history == null ? 1.0f : history.getSpeed());
+        setInlineSpeed(history == null ? NORMAL_SPEED : history.getSpeed());
         updateInlineButtons(false);
         Site site = getCurrentSite();
         ensureInlineDanmakuController();
@@ -2717,6 +2725,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void updateMobileInlineButtons(boolean playing, boolean hasPlayer, boolean hasPrev, boolean hasNext) {
         if (!Util.isMobile()) return;
+        updateMobileInlineSideControlMargins();
         boolean locked = isLock();
         TextView title = detailControlView(R.id.title, TextView.class);
         TextView size = detailControlView(R.id.size, TextView.class);
@@ -3251,8 +3260,22 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void onInlineBack() {
-        if (inlineFullscreen) exitInlineFullscreen();
+        if (inlineFullscreen) backFromInlineFullscreen();
         else finish();
+    }
+
+    private void backFromInlineFullscreen() {
+        if (detailPlayerActive && !isFusionMode() && !Setting.isPlayBackToDetail()) {
+            finishPlaybackToHome();
+        } else {
+            exitInlineFullscreen();
+        }
+    }
+
+    private void finishPlaybackToHome() {
+        saveInlineHistory();
+        startActivity(new Intent(this, HomeActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+        finish();
     }
 
     private void openInlineExternal() {
@@ -3601,6 +3624,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         if (!Util.isMobile() || !inlineFullscreen || isLock()) return;
         touchInlineControls();
         setRequestedOrientation(ResUtil.isLand(this) ? ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT : ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+        scheduleMobileInlineSideControlMarginUpdate();
     }
 
     private void enterInlineFullscreen() {
@@ -3625,6 +3649,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.playerPanel.requestFocus();
         Util.toggleFullscreen(this, true);
         setInlineFullscreenOrientation();
+        scheduleMobileInlineSideControlMarginUpdate();
     }
 
     private void applyInlineShortDramaMode() {
@@ -3730,6 +3755,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         updateInlineButtons(playing);
         updateInlineDisplayPanel();
         Util.toggleFullscreen(this, false);
+        updateMobileInlineSideControlMargins();
         setRequestedOrientation(requestedOrientation);
         if (closeDetailPlayer) closeDetailFullscreenPlayer();
         else focusInlinePlayerPanel();
@@ -3737,6 +3763,34 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         playerLayoutParams = null;
         playerIndex = -1;
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
+    }
+
+    private void scheduleMobileInlineSideControlMarginUpdate() {
+        updateMobileInlineSideControlMargins();
+        if (binding != null && detailControlRoot != null) detailControlView(R.id.danmaku, View.class).postDelayed(this::updateMobileInlineSideControlMargins, 350);
+    }
+
+    private void updateMobileInlineSideControlMargins() {
+        if (!Util.isMobile() || detailControlRoot == null) return;
+        View danmaku = detailControlView(R.id.danmaku, View.class);
+        View danmakuParent = danmaku.getParent() instanceof View ? (View) danmaku.getParent() : danmaku;
+        int margin = ResUtil.dp2px(inlineFullscreen && ResUtil.isLand(this) ? INLINE_SIDE_CONTROL_FULLSCREEN_MARGIN_DP : INLINE_SIDE_CONTROL_MARGIN_DP);
+        setStartMargin(danmakuParent, margin);
+        setEndMargin(detailControlView(R.id.right, View.class), margin);
+    }
+
+    private void setStartMargin(View view, int margin) {
+        ViewGroup.LayoutParams params = view.getLayoutParams();
+        if (!(params instanceof ViewGroup.MarginLayoutParams marginParams)) return;
+        marginParams.setMarginStart(margin);
+        view.setLayoutParams(marginParams);
+    }
+
+    private void setEndMargin(View view, int margin) {
+        ViewGroup.LayoutParams params = view.getLayoutParams();
+        if (!(params instanceof ViewGroup.MarginLayoutParams marginParams)) return;
+        marginParams.setMarginEnd(margin);
+        view.setLayoutParams(marginParams);
     }
 
     private void setInlineLock(boolean lock) {
@@ -4010,6 +4064,12 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     @Override
+    public void onConfigurationChanged(@NonNull Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        scheduleMobileInlineSideControlMarginUpdate();
+    }
+
+    @Override
     protected void onError(String msg) {
         showInlineError(msg);
     }
@@ -4061,7 +4121,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             return;
         }
         if (inlineFullscreen) {
-            exitInlineFullscreen();
+            backFromInlineFullscreen();
             return;
         }
         super.onBackInvoked();
@@ -4146,6 +4206,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         saved.setVodRemarks(historyEpisodeTitle(selectedEpisode));
         saved.setEpisodeUrl(selectedEpisode.getUrl());
         saved.setVodPic(playbackHistoryPic());
+        saved.setSpeed(history == null ? NORMAL_SPEED : normalizeInlineSpeed(history.getSpeed()));
         if (history != null && history.hasPlayer()) saved.setPlayer(history.getPlayer());
         saved.save();
         history = saved;

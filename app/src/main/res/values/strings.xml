@@ -213,6 +213,7 @@
     <string name="setting_incognito">Incognito mode</string>
     <string name="setting_personal">Personal settings</string>
     <string name="setting_home_vod_auto_load">Auto-load VOD</string>
+    <string name="setting_play_back_to_detail">Return playback to detail</string>
     <string name="setting_home_history">Home recent history</string>
     <string name="setting_drive_check">Drive link check</string>
     <string name="setting_search_thread">Search threads</string>

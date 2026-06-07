@@ -38,14 +38,21 @@ public class SettingPersonalActivity extends BaseActivity {
     @Override
     protected void initEvent() {
         mBinding.homeVodAutoLoad.setOnClickListener(this::setHomeVodAutoLoad);
+        mBinding.playBackToDetail.setOnClickListener(this::setPlayBackToDetail);
     }
 
     private void setText() {
         mBinding.homeVodAutoLoadText.setText(getSwitch(Setting.isHomeVodAutoLoad()));
+        mBinding.playBackToDetailText.setText(getSwitch(Setting.isPlayBackToDetail()));
     }
 
     private void setHomeVodAutoLoad(View view) {
         Setting.putHomeVodAutoLoad(!Setting.isHomeVodAutoLoad());
+        setText();
+    }
+
+    private void setPlayBackToDetail(View view) {
+        Setting.putPlayBackToDetail(!Setting.isPlayBackToDetail());
         setText();
     }
 }

@@ -23,6 +23,7 @@ public class TmdbPlaybackActivity extends VideoActivity implements TmdbPlaybackE
         intent.putExtra("fusion", false);
         intent.putExtra("collect", false);
         intent.putExtra("cast", false);
+        intent.putExtra(EXTRA_RESET_PLAYBACK_SPEED, true);
         intent.putExtra("mark", mark);
         intent.putStringArrayListExtra("tmdb_episode_titles", episodeTitles);
         intent.putExtra("name", name);

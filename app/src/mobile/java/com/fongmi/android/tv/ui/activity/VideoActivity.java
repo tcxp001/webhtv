@@ -123,6 +123,8 @@ import java.util.function.Consumer;
 public class VideoActivity extends PlaybackActivity implements Clock.Callback, CustomKeyDown.Listener, TrackDialog.Listener, ControlDialog.Listener, FlagAdapter.OnClickListener, EpisodeAdapter.OnClickListener, QualityAdapter.OnClickListener, QuickAdapter.OnClickListener, ParseAdapter.OnClickListener, CastDialog.Listener, InfoDialog.Listener {
 
     private static final int SHORT_DRAMA_SCALE = 4;
+    protected static final String EXTRA_RESET_PLAYBACK_SPEED = "reset_playback_speed";
+    private static final float NORMAL_SPEED = 1.0f;
     private static final int SIDE_CONTROL_MARGIN_DP = 4;
     private static final int SIDE_CONTROL_FULLSCREEN_MARGIN_DP = 48;
 
@@ -299,6 +301,10 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private boolean isReplay() {
         return Setting.getReset() == 1;
+    }
+
+    private boolean shouldResetPlaybackSpeed() {
+        return getIntent().getBooleanExtra(EXTRA_RESET_PLAYBACK_SPEED, false);
     }
 
     private boolean isFromCollect() {
@@ -1431,6 +1437,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mHistory = mHistory == null ? createHistory(item) : mHistory;
         if (!TextUtils.isEmpty(getMark())) mHistory.setVodRemarks(getMark());
         if (Setting.isIncognito() && mHistory.getKey().equals(getHistoryKey())) mHistory.delete();
+        if (shouldResetPlaybackSpeed()) mHistory.setSpeed(NORMAL_SPEED);
         mBinding.control.action.opening.setText(mHistory.getOpening() <= 0 ? getString(R.string.play_op) : Util.timeMs(mHistory.getOpening()));
         mBinding.control.action.ending.setText(mHistory.getEnding() <= 0 ? getString(R.string.play_ed) : Util.timeMs(mHistory.getEnding()));
         mBinding.control.action.speed.setText(player().setSpeed(mHistory.getSpeed()));
@@ -1876,7 +1883,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void updateSideControlMargins() {
-        int margin = ResUtil.dp2px(isFullscreen() && !isShortDramaSource() ? SIDE_CONTROL_FULLSCREEN_MARGIN_DP : SIDE_CONTROL_MARGIN_DP);
+        int margin = ResUtil.dp2px(isFullscreen() && !isRotate() && !isShortDramaSource() ? SIDE_CONTROL_FULLSCREEN_MARGIN_DP : SIDE_CONTROL_MARGIN_DP);
         setStartMargin((View) mBinding.control.danmaku.getParent(), margin);
         setEndMargin(mBinding.control.right.getRoot(), margin);
     }
@@ -1927,6 +1934,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     public void setRotate(boolean rotate) {
         this.rotate = rotate;
+        updateSideControlMargins();
         if (fullscreen && !rotate) setPadding(mBinding.control.getRoot());
         else noPadding(mBinding.control.getRoot());
     }

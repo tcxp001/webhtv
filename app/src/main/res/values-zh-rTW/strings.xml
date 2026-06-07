@@ -212,6 +212,7 @@
     <string name="setting_incognito">無痕模式</string>
     <string name="setting_personal">個性設定</string>
     <string name="setting_home_vod_auto_load">預設載入點播</string>
+    <string name="setting_play_back_to_detail">播放返回詳情頁</string>
     <string name="setting_home_history">首頁最近觀看</string>
     <string name="setting_drive_check">網盤檢測</string>
     <string name="setting_search_thread">搜索線程</string>

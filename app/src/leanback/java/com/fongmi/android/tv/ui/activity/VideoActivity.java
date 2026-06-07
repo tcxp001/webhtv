@@ -105,6 +105,8 @@ import java.util.function.Consumer;
 public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.Listener, TrackDialog.Listener, ArrayAdapter.OnClickListener, FlagAdapter.OnClickListener, EpisodeAdapter.OnClickListener, QualityAdapter.OnClickListener, QuickAdapter.OnClickListener, ParseAdapter.OnClickListener, Clock.Callback {
 
     private static final int SHORT_DRAMA_SCALE = 4;
+    protected static final String EXTRA_RESET_PLAYBACK_SPEED = "reset_playback_speed";
+    private static final float NORMAL_SPEED = 1.0f;
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss", Locale.getDefault());
 
     private ActivityVideoBinding mBinding;
@@ -283,6 +285,10 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private boolean isReplay() {
         return Setting.getReset() == 1;
+    }
+
+    private boolean shouldResetPlaybackSpeed() {
+        return getIntent().getBooleanExtra(EXTRA_RESET_PLAYBACK_SPEED, false);
     }
 
     private boolean isFromCollect() {
@@ -1221,6 +1227,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mHistory = mHistory == null ? createHistory(item) : mHistory;
         if (!TextUtils.isEmpty(getMark())) mHistory.setVodRemarks(getMark());
         if (Setting.isIncognito() && mHistory.getKey().equals(getHistoryKey())) mHistory.delete();
+        if (shouldResetPlaybackSpeed()) mHistory.setSpeed(NORMAL_SPEED);
         mBinding.control.action.opening.setText(mHistory.getOpening() <= 0 ? getString(R.string.play_op) : Util.timeMs(mHistory.getOpening()));
         mBinding.control.action.ending.setText(mHistory.getEnding() <= 0 ? getString(R.string.play_ed) : Util.timeMs(mHistory.getEnding()));
         mBinding.control.action.speed.setText(player().setSpeed(mHistory.getSpeed()));
