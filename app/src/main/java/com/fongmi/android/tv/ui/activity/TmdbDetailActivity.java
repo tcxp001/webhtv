@@ -2021,7 +2021,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private void onPlay() {
         if (vod == null) return;
         saveInlineHistory();
-        persistSelection();
+        updateInlineHistory(selectedEpisode);
         if (isFusionMode()) playInline();
         else playDetailFullscreen();
     }
@@ -4128,22 +4128,33 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void saveInlineHistory() {
-        if (!isInlinePlayerMode() || !inlineStarted || !isOwner() || history == null || service() == null || player() == null) return;
-        if (!player().isEmpty()) {
-            history.setCreateTime(System.currentTimeMillis());
-            history.setPosition(player().getPosition());
-            history.setDuration(player().getDuration());
-            updateInlineHistoryPlayer();
-            if (history.canSave() && !Setting.isIncognito()) {
-                history.merge().save();
-                RefreshEvent.history();
-            }
+        if (!isInlinePlayerMode() || !inlineStarted || !isOwner() || history == null) return;
+        updateInlineHistoryProgress();
+        if (history.canSave() && !Setting.isIncognito()) {
+            history.merge().save();
+            RefreshEvent.history();
         }
     }
 
     private void syncInlineHistory() {
-        updateInlineHistoryPlayer();
+        updateInlineHistoryProgress();
         if (history != null && !Setting.isIncognito()) Task.execute(() -> history.save());
+    }
+
+    private void updateInlineHistoryProgress() {
+        if (history == null || service() == null || player() == null || player().isReleased() || !isOwner()) {
+            updateInlineHistoryPlayer();
+            return;
+        }
+        updateInlineHistoryProgress(System.currentTimeMillis(), player().getPosition(), player().getDuration());
+    }
+
+    private void updateInlineHistoryProgress(long time, long position, long duration) {
+        if (history == null) return;
+        history.setCreateTime(time);
+        if (position > 0) history.setPosition(position);
+        if (duration > 0) history.setDuration(duration);
+        updateInlineHistoryPlayer();
     }
 
     private void updateInlineHistoryPlayer() {
@@ -4156,12 +4167,12 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         long position = player().getPosition();
         long duration = player().getDuration();
         boolean canUpdateProgress = inlineStartPositionApplied || getInlineStartPosition() <= 0;
-        history.setCreateTime(time);
         if (canUpdateProgress) {
-            history.setPosition(position);
-            history.setDuration(duration);
+            updateInlineHistoryProgress(time, position, duration);
+        } else {
+            history.setCreateTime(time);
+            updateInlineHistoryPlayer();
         }
-        updateInlineHistoryPlayer();
         if (canUpdateProgress && history.canSave() && history.canSync()) syncInlineHistory();
         if (canUpdateProgress && history.getEnding() > 0 && duration > 0 && history.getEnding() + position >= duration) checkInlineEnded(false);
         if (isInlineControlsVisible()) updateMobileInlineControlTime();
@@ -4191,25 +4202,22 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         }
     };
 
-    private void persistSelection() {
-        if (selectedFlag == null || selectedEpisode == null) return;
-        History saved = History.find(getHistoryKey());
-        if (saved == null) {
-            saved = new History();
-            saved.setKey(getHistoryKey());
-            saved.setCid(VodConfig.getCid());
+    private void updateInlineHistory(Episode item) {
+        if (selectedFlag == null || item == null) return;
+        if (history == null) {
+            history = new History();
+            history.setKey(getHistoryKey());
+            history.setCid(VodConfig.getCid());
         }
-        saved.setCid(VodConfig.getCid());
-        saved.setVodName(playbackHistoryName());
-        if (!isSameInlineHistoryEpisode(selectedEpisode, saved)) saved.setPosition(C.TIME_UNSET);
-        saved.setVodFlag(selectedFlag.getFlag());
-        saved.setVodRemarks(historyEpisodeTitle(selectedEpisode));
-        saved.setEpisodeUrl(selectedEpisode.getUrl());
-        saved.setVodPic(playbackHistoryPic());
-        saved.setSpeed(history == null ? NORMAL_SPEED : normalizeInlineSpeed(history.getSpeed()));
-        if (history != null && history.hasPlayer()) saved.setPlayer(history.getPlayer());
-        saved.save();
-        history = saved;
+        boolean same = isSameInlineHistoryEpisode(item, history);
+        history.setPosition(same ? history.getPosition() : C.TIME_UNSET);
+        history.setCid(VodConfig.getCid());
+        history.setVodName(playbackHistoryName());
+        history.setVodFlag(selectedFlag.getFlag());
+        history.setVodRemarks(historyEpisodeTitle(item));
+        history.setEpisodeUrl(item.getUrl());
+        history.setVodPic(playbackHistoryPic());
+        history.setSpeed(normalizeInlineSpeed(history.getSpeed()));
         syncDanmakuCompatHistory();
     }
 
