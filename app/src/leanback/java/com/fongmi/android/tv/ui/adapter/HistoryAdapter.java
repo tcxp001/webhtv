@@ -17,6 +17,7 @@ public class HistoryAdapter extends BaseDiffAdapter<History, HistoryAdapter.View
 
     private final OnClickListener listener;
     private int width, height;
+    private boolean delete;
 
     public HistoryAdapter(OnClickListener listener) {
         this.listener = listener;
@@ -26,6 +27,10 @@ public class HistoryAdapter extends BaseDiffAdapter<History, HistoryAdapter.View
     public interface OnClickListener {
 
         void onItemClick(History item);
+
+        void onItemDelete(History item);
+
+        boolean onLongClick();
     }
 
     private void setLayoutSize() {
@@ -35,8 +40,21 @@ public class HistoryAdapter extends BaseDiffAdapter<History, HistoryAdapter.View
         height = (int) (width / 0.75f);
     }
 
+    public boolean isDelete() {
+        return delete;
+    }
+
+    public void setDelete(boolean delete) {
+        this.delete = delete;
+        notifyItemRangeChanged(0, getItemCount());
+    }
+
     private void setClickListener(View root, History item) {
-        root.setOnClickListener(view -> listener.onItemClick(item));
+        root.setOnLongClickListener(view -> listener.onLongClick());
+        root.setOnClickListener(view -> {
+            if (isDelete()) listener.onItemDelete(item);
+            else listener.onItemClick(item);
+        });
     }
 
     @NonNull
@@ -58,8 +76,8 @@ public class HistoryAdapter extends BaseDiffAdapter<History, HistoryAdapter.View
         holder.binding.site.setText(item.getSiteName());
         holder.binding.remark.setText(remark);
         holder.binding.site.setVisibility(item.getSiteVisible());
-        holder.binding.delete.setVisibility(View.GONE);
-        holder.binding.remark.setVisibility(same ? View.GONE : View.VISIBLE);
+        holder.binding.delete.setVisibility(!delete ? View.GONE : View.VISIBLE);
+        holder.binding.remark.setVisibility(delete || same ? View.GONE : View.VISIBLE);
         ImgUtil.load(item.getVodName(), item.getVodPic(), holder.binding.image);
     }
 

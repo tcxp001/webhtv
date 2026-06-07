@@ -8,6 +8,7 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.viewbinding.ViewBinding;
 
 import com.fongmi.android.tv.Product;
+import com.fongmi.android.tv.api.config.VodConfig;
 import com.fongmi.android.tv.bean.History;
 import com.fongmi.android.tv.databinding.ActivityHistoryBinding;
 import com.fongmi.android.tv.event.RefreshEvent;
@@ -51,6 +52,12 @@ public class HistoryActivity extends BaseActivity implements HistoryAdapter.OnCl
         mAdapter.setItems(History.get(), () -> mBinding.progressLayout.showContent(true, mAdapter.getItemCount()));
     }
 
+    private void clearHistory() {
+        History.delete(VodConfig.getCid());
+        mAdapter.clear(() -> mBinding.progressLayout.showContent(true, mAdapter.getItemCount()));
+        mAdapter.setDelete(false);
+    }
+
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onRefreshEvent(RefreshEvent event) {
         if (event.getType() == RefreshEvent.Type.HISTORY) getHistory();
@@ -62,6 +69,27 @@ public class HistoryActivity extends BaseActivity implements HistoryAdapter.OnCl
         else if (Setting.isCinemaDetailPage()) TmdbDetailActivity.startPlayback(this, item.getSiteKey(), item.getVodId(), item.getVodName(), item.getVodPic(), item.getVodRemarks(), Setting.DETAIL_OPEN_CINEMA);
         else if (Setting.isFusionDetailPage()) TmdbDetailActivity.startPlayback(this, item.getSiteKey(), item.getVodId(), item.getVodName(), item.getVodPic(), item.getVodRemarks(), true);
         else VideoActivity.startDirect(this, item.getSiteKey(), item.getVodId(), item.getVodName(), item.getVodPic(), item.getVodRemarks());
+    }
+
+    @Override
+    public void onItemDelete(History item) {
+        mAdapter.remove(item.delete(), () -> {
+            mBinding.progressLayout.showContent(true, mAdapter.getItemCount());
+            if (mAdapter.getItemCount() == 0) mAdapter.setDelete(false);
+        });
+    }
+
+    @Override
+    public boolean onLongClick() {
+        if (mAdapter.isDelete()) clearHistory();
+        else mAdapter.setDelete(true);
+        return true;
+    }
+
+    @Override
+    protected void onBackInvoked() {
+        if (mAdapter.isDelete()) mAdapter.setDelete(false);
+        else super.onBackInvoked();
     }
 
 }
