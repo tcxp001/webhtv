@@ -39,21 +39,6 @@
                     android:textSize="17sp"
                     android:textStyle="bold" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/close"
-                    style="?attr/materialButtonOutlinedStyle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="38dp"
-                    android:minWidth="58dp"
-                    android:minHeight="38dp"
-                    android:text="@string/detail_close"
-                    android:textColor="@android:color/white"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
-                    app:backgroundTint="#263442"
-                    app:cornerRadius="8dp"
-                    app:strokeColor="#26FFFFFF"
-                    app:strokeWidth="1dp" />
             </LinearLayout>
 
             <LinearLayout
