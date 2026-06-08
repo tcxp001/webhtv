@@ -3,15 +3,9 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <item
-        android:id="@+id/action_layout"
-        android:icon="@drawable/ic_action_reverse"
-        android:title="@string/setting_search_ui"
-        app:showAsAction="always" />
-
-    <item
-        android:id="@+id/action_column"
-        android:icon="@drawable/ic_action_more"
-        android:title="@string/setting_search_column"
+        android:id="@+id/action_view"
+        android:icon="@drawable/ic_action_list"
+        android:title="@string/menu_view"
         app:showAsAction="always" />
 
 </menu>

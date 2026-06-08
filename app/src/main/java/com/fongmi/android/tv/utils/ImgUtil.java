@@ -94,10 +94,13 @@ public class ImgUtil {
     }
 
     public static void hold(String url, ImageView view, boolean vod) {
+        Object oldTag = view.getTag(R.id.image);
+        boolean same = TextUtils.equals(url, oldTag instanceof String ? (String) oldTag : null);
+        if (!same) cancel(view);
         view.setScaleType(vod ? CENTER_CROP : FIT_CENTER);
         if (!vod) view.setVisibility(TextUtils.isEmpty(url) ? View.GONE : View.VISIBLE);
         view.setTag(R.id.image, url);
-        view.setImageDrawable(null);
+        if (!same) view.setImageDrawable(null);
     }
 
     private static void load(String text, String url, ImageView view, boolean vod, int width, int height) {
@@ -107,6 +110,7 @@ public class ImgUtil {
     private static void load(String text, String url, ImageView view, boolean vod, int width, int height, boolean thumb) {
         view.setScaleType(vod ? CENTER_CROP : FIT_CENTER);
         if (!vod) view.setVisibility(TextUtils.isEmpty(url) ? View.GONE : View.VISIBLE);
+        Object oldTag = view.getTag(R.id.image);
         view.setTag(R.id.image, url);
         Object model = getUrl(url);
         if (model == null || failed.contains(url)) {
@@ -114,7 +118,7 @@ public class ImgUtil {
             if (!TextUtils.isEmpty(url)) failed.add(url);
             return;
         }
-        view.setImageDrawable(null);
+        if (!TextUtils.equals(url, oldTag instanceof String ? (String) oldTag : null)) view.setImageDrawable(null);
         if (width > 0 && height > 0) load(text, url, view, vod, model, width, height, thumb);
         else view.post(() -> load(text, url, view, vod, model, width > 0 ? width : view.getWidth(), height > 0 ? height : view.getHeight(), thumb));
     }
@@ -146,6 +150,14 @@ public class ImgUtil {
     public static void clear(ImageView view) {
         try {
             view.setTag(R.id.image, null);
+            Glide.with(view).clear(view);
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void cancel(ImageView view) {
+        try {
             Glide.with(view).clear(view);
         } catch (Throwable e) {
             e.printStackTrace();

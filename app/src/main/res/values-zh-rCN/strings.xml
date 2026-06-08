@@ -402,6 +402,7 @@
     <string name="danmaku_spider_first">爬虫优先</string>
 
     <!-- Search -->
+    <string name="menu_view">切换</string>
     <string name="search_keyword">关键字…</string>
     <string name="site_search_hint">搜索站点…</string>
     <string name="search_record">历史</string>

@@ -1,6 +1,7 @@
 package com.fongmi.android.tv.ui.adapter;
 
 import android.view.LayoutInflater;
+import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 
@@ -21,7 +22,7 @@ public class SearchAdapter extends BaseDiffAdapter<Vod, RecyclerView.ViewHolder>
     private static final int VIEW_TYPE_GRID = 2;
 
     private final OnClickListener listener;
-    private int columnCount = 1;
+    private int columnCount = 2;
     private int gridWidth;
     private boolean loadImages = true;
 
@@ -68,11 +69,17 @@ public class SearchAdapter extends BaseDiffAdapter<Vod, RecyclerView.ViewHolder>
         int position = holder.getBindingAdapterPosition();
         if (position == RecyclerView.NO_POSITION || position >= getItemCount()) return;
         Vod item = getItem(position);
-        if (holder instanceof GridViewHolder grid) {
-            grid.bindImage(item);
-            return;
+        boolean load = loadImages;
+        loadImages = true;
+        try {
+            if (holder instanceof GridViewHolder grid) {
+                grid.bindImage(item);
+                return;
+            }
+            if (holder instanceof ListViewHolder list) list.bindImage(item);
+        } finally {
+            loadImages = load;
         }
-        if (holder instanceof ListViewHolder list) list.bindImage(item);
     }
 
     private void loadGridImage(Vod item, ImageView image) {
@@ -80,7 +87,11 @@ public class SearchAdapter extends BaseDiffAdapter<Vod, RecyclerView.ViewHolder>
             ImgUtil.hold(item.getPic(), image, true);
             return;
         }
-        ImgUtil.loadThumb(item.getName(), item.getPic(), image, image.getLayoutParams().width, image.getLayoutParams().height);
+        int width = image.getWidth();
+        int height = image.getHeight();
+        if (width <= 0 && image.getParent() instanceof View parent) width = parent.getWidth();
+        if (height <= 0) height = image.getLayoutParams().height;
+        ImgUtil.loadThumb(item.getName(), item.getPic(), image, width, height);
     }
 
     private void loadListImage(Vod item, ImageView image) {
@@ -129,6 +140,15 @@ public class SearchAdapter extends BaseDiffAdapter<Vod, RecyclerView.ViewHolder>
 
     @Override
     public void onViewRecycled(@NonNull RecyclerView.ViewHolder holder) {
+        clearImage(holder);
+    }
+
+    private void clearImage(@NonNull RecyclerView.ViewHolder holder) {
+        if (holder instanceof GridViewHolder grid) {
+            ImgUtil.clear(grid.binding.image);
+            return;
+        }
+        if (holder instanceof ListViewHolder list) ImgUtil.clear(list.binding.image);
     }
 
     public class ListViewHolder extends RecyclerView.ViewHolder {

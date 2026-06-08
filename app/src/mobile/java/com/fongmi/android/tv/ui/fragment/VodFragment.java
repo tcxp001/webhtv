@@ -12,7 +12,6 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentStatePagerAdapter;
 import androidx.lifecycle.ViewModelProvider;
-import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewbinding.ViewBinding;
 import androidx.viewpager.widget.PagerAdapter;
 import androidx.viewpager.widget.ViewPager;
@@ -122,32 +121,15 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
             int padding = (int) (ResUtil.dp2px(12) * factor);
             if (mBinding.type.getPaddingTop() == padding) return;
             mBinding.type.setPadding(mBinding.type.getPaddingStart(), padding, mBinding.type.getPaddingEnd(), mBinding.type.getPaddingBottom());
-            mBinding.type.post(this::updateTypeEdge);
-        });
-        mBinding.type.addOnScrollListener(new RecyclerView.OnScrollListener() {
-            @Override
-            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
-                updateTypeEdge();
-            }
         });
         mBinding.pager.addOnPageChangeListener(new ViewPager.SimpleOnPageChangeListener() {
             @Override
             public void onPageSelected(int position) {
                 mBinding.type.smoothScrollToPosition(position);
                 mAdapter.setSelected(position);
-                mBinding.type.post(VodFragment.this::updateTypeEdge);
                 setFabVisible(position);
             }
         });
-    }
-
-    private void updateTypeEdge() {
-        if (mBinding.type.getWidth() == 0) return;
-        int right = mBinding.type.getWidth() - mBinding.type.getPaddingRight();
-        for (int i = 0; i < mBinding.type.getChildCount(); i++) {
-            View child = mBinding.type.getChildAt(i);
-            child.setVisibility(mBinding.typeMore.getVisibility() == View.VISIBLE && child.getRight() > right ? View.GONE : View.VISIBLE);
-        }
     }
 
     private void updateTypeMoreVisible() {
@@ -158,7 +140,6 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         int typeWidth = mBinding.typeBar.getWidth() - mBinding.typeBar.getPaddingStart() - mBinding.typeBar.getPaddingEnd();
         boolean visible = mAdapter.getItemCount() > 0 && mBinding.type.computeHorizontalScrollRange() > typeWidth;
         mBinding.typeMore.setVisibility(visible ? View.VISIBLE : View.GONE);
-        mBinding.type.post(this::updateTypeEdge);
     }
 
     private void setRecyclerView() {

@@ -402,6 +402,7 @@
     <string name="danmaku_spider_first">Spider first</string>
 
     <!-- Search -->
+    <string name="menu_view">Switch</string>
     <string name="search_keyword">Keywords…</string>
     <string name="site_search_hint">Search sites…</string>
     <string name="search_record">History</string>

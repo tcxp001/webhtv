@@ -11,7 +11,6 @@ import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.LinearLayoutCompat;
 import androidx.core.view.MenuProvider;
 import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.ViewModelProvider;
@@ -29,7 +28,6 @@ import com.fongmi.android.tv.bean.Site;
 import com.fongmi.android.tv.bean.Vod;
 import com.fongmi.android.tv.databinding.FragmentCollectBinding;
 import com.fongmi.android.tv.model.SiteViewModel;
-import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.setting.SiteHealthStore;
 import com.fongmi.android.tv.ui.activity.FolderActivity;
 import com.fongmi.android.tv.ui.activity.VideoActivity;
@@ -38,17 +36,18 @@ import com.fongmi.android.tv.ui.adapter.SearchAdapter;
 import com.fongmi.android.tv.ui.base.BaseFragment;
 import com.fongmi.android.tv.ui.custom.CustomScroller;
 import com.fongmi.android.tv.utils.Notify;
-import com.fongmi.android.tv.utils.ResUtil;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class CollectFragment extends BaseFragment implements MenuProvider, CollectAdapter.OnClickListener, SearchAdapter.OnClickListener, CustomScroller.Callback {
 
+    private static final int SEARCH_COLUMN_COUNT = 2;
     private static final long SEARCH_UPDATE_DELAY = 80;
     private static final long SEARCH_SCROLL_DELAY = 180;
-    private static final long SEARCH_AFTER_SCROLL_DELAY = 1500;
-    private static final long SEARCH_IMAGE_DELAY = 350;
+    private static final long SEARCH_FIRST_IMAGE_DELAY = 300;
+    private static final long SEARCH_AFTER_SCROLL_DELAY = 800;
+    private static final long SEARCH_IMAGE_DELAY = 220;
     private static final int SEARCH_BATCH_SIZE = 24;
     private static final int SEARCH_IMAGE_BATCH_SIZE = 1;
     private static final int COLLECT_BATCH_SIZE = 8;
@@ -67,6 +66,9 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
     private String pendingActiveSiteKey;
     private int pendingImageStart;
     private int pendingImageEnd;
+    private int loadedImageStart;
+    private int loadedImageEnd;
+    private boolean imageRestoreScheduled;
     private boolean searchScrolling;
 
     public CollectFragment() {
@@ -78,6 +80,8 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
         pendingActiveSiteKey = "";
         pendingImageStart = RecyclerView.NO_POSITION;
         pendingImageEnd = RecyclerView.NO_POSITION;
+        loadedImageStart = RecyclerView.NO_POSITION;
+        loadedImageEnd = RecyclerView.NO_POSITION;
     }
 
     public static CollectFragment newInstance(String keyword) {
@@ -127,7 +131,6 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
         setRecyclerView();
         setViewModel();
         setSites();
-        setCollectLayout();
         search();
     }
 
@@ -144,7 +147,7 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
     private void setRecyclerView() {
         mBinding.collect.setItemAnimator(null);
         mBinding.collect.setHasFixedSize(true);
-        mBinding.collect.setAdapter(mCollectAdapter = new CollectAdapter(this, isHorizontalUi()));
+        mBinding.collect.setAdapter(mCollectAdapter = new CollectAdapter(this));
         mBinding.recycler.setItemAnimator(null);
         mBinding.recycler.setHasFixedSize(true);
         mBinding.recycler.addOnScrollListener(mScroller);
@@ -157,6 +160,8 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
                 if (scrolling) {
                     if (mSearchAdapter != null) mSearchAdapter.setLoadImages(false);
                     App.removeCallbacks(flushSearchUpdates, restoreSearchImages);
+                    imageRestoreScheduled = false;
+                    resetLoadedSearchImages();
                 } else {
                     scheduleVisibleSearchImages(SEARCH_AFTER_SCROLL_DELAY);
                     App.post(flushSearchUpdates, SEARCH_AFTER_SCROLL_DELAY);
@@ -164,7 +169,7 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
             }
         });
         mBinding.recycler.setAdapter(mSearchAdapter = new SearchAdapter(this));
-        updateSpanCount();
+        setFixedSearchGrid();
     }
 
     private void scheduleVisibleSearchImages(long delayMillis) {
@@ -174,36 +179,82 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
         int first = layoutManager.findFirstVisibleItemPosition();
         int last = layoutManager.findLastVisibleItemPosition();
         if (first == RecyclerView.NO_POSITION || last < first) return;
-        pendingImageStart = first;
+        if (isSearchImageRangeLoaded(first, last)) return;
+        if (imageRestoreScheduled) {
+            if (pendingImageStart == RecyclerView.NO_POSITION || pendingImageEnd < pendingImageStart) pendingImageStart = getFirstUnloadedSearchImage(first, last);
+            pendingImageEnd = Math.max(pendingImageEnd, last);
+            return;
+        }
+        pendingImageStart = getFirstUnloadedSearchImage(first, last);
         pendingImageEnd = last;
+        if (pendingImageStart == RecyclerView.NO_POSITION || pendingImageEnd < pendingImageStart) return;
+        imageRestoreScheduled = true;
         App.post(restoreSearchImages, delayMillis);
     }
 
     private void restoreSearchImages() {
+        imageRestoreScheduled = false;
         if (mBinding == null || mSearchAdapter == null || searchScrolling) return;
         if (pendingImageStart == RecyclerView.NO_POSITION || pendingImageEnd < pendingImageStart) return;
         int count = Math.min(SEARCH_IMAGE_BATCH_SIZE, pendingImageEnd - pendingImageStart + 1);
-        mSearchAdapter.setLoadImages(true);
         for (int i = 0; i < count; i++) {
-            RecyclerView.ViewHolder holder = mBinding.recycler.findViewHolderForAdapterPosition(pendingImageStart + i);
-            if (holder != null) mSearchAdapter.loadImage(holder);
+            int position = pendingImageStart + i;
+            RecyclerView.ViewHolder holder = mBinding.recycler.findViewHolderForAdapterPosition(position);
+            if (holder != null) {
+                mSearchAdapter.loadImage(holder);
+                markSearchImageLoaded(position);
+            }
         }
         pendingImageStart += count;
-        if (pendingImageStart <= pendingImageEnd) App.post(restoreSearchImages, SEARCH_IMAGE_DELAY);
+        if (pendingImageStart <= pendingImageEnd) {
+            imageRestoreScheduled = true;
+            App.post(restoreSearchImages, SEARCH_IMAGE_DELAY);
+        } else {
+            pendingImageStart = RecyclerView.NO_POSITION;
+            pendingImageEnd = RecyclerView.NO_POSITION;
+            if (!mSearchAdapter.isGridMode()) mSearchAdapter.setLoadImages(true);
+        }
     }
 
     private void addSearchItems(List<Vod> items) {
         if (items.isEmpty()) return;
         if (mSearchAdapter.isGridMode()) mSearchAdapter.setLoadImages(false);
-        mSearchAdapter.addAll(items, () -> scheduleVisibleSearchImages(SEARCH_AFTER_SCROLL_DELAY));
+        mSearchAdapter.addAll(items, () -> scheduleVisibleSearchImages(SEARCH_FIRST_IMAGE_DELAY));
     }
 
     private void setSearchItems(List<Vod> items, Runnable runnable) {
+        resetLoadedSearchImages();
         if (mSearchAdapter.isGridMode()) mSearchAdapter.setLoadImages(false);
         mSearchAdapter.setItems(items, () -> {
             runnable.run();
-            scheduleVisibleSearchImages(SEARCH_AFTER_SCROLL_DELAY);
+            scheduleVisibleSearchImages(SEARCH_FIRST_IMAGE_DELAY);
         });
+    }
+
+    private int getFirstUnloadedSearchImage(int first, int last) {
+        if (loadedImageStart == RecyclerView.NO_POSITION || first < loadedImageStart || first > loadedImageEnd) return first;
+        int position = loadedImageEnd + 1;
+        return position <= last ? position : RecyclerView.NO_POSITION;
+    }
+
+    private boolean isSearchImageRangeLoaded(int first, int last) {
+        return loadedImageStart != RecyclerView.NO_POSITION && first >= loadedImageStart && last <= loadedImageEnd;
+    }
+
+    private void markSearchImageLoaded(int position) {
+        if (position == RecyclerView.NO_POSITION) return;
+        if (loadedImageStart == RecyclerView.NO_POSITION) {
+            loadedImageStart = position;
+            loadedImageEnd = position;
+            return;
+        }
+        loadedImageStart = Math.min(loadedImageStart, position);
+        loadedImageEnd = Math.max(loadedImageEnd, position);
+    }
+
+    private void resetLoadedSearchImages() {
+        loadedImageStart = RecyclerView.NO_POSITION;
+        loadedImageEnd = RecyclerView.NO_POSITION;
     }
 
     private void setViewModel() {
@@ -223,76 +274,6 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
         SiteHealthStore.sortSites(mSites);
     }
 
-    private void setCollectLayout() {
-        boolean horizontal = isHorizontalUi();
-        int gap = ResUtil.dp2px(8);
-        mBinding.content.setOrientation(horizontal ? LinearLayoutCompat.VERTICAL : LinearLayoutCompat.HORIZONTAL);
-        mBinding.collect.setLayoutManager(new LinearLayoutManager(requireActivity(), horizontal ? LinearLayoutManager.HORIZONTAL : LinearLayoutManager.VERTICAL, false));
-        LinearLayoutCompat.LayoutParams collectParams = (LinearLayoutCompat.LayoutParams) mBinding.collect.getLayoutParams();
-        LinearLayoutCompat.LayoutParams recyclerParams = (LinearLayoutCompat.LayoutParams) mBinding.recycler.getLayoutParams();
-        collectParams.width = horizontal ? ViewGroup.LayoutParams.MATCH_PARENT : getCollectWidth();
-        collectParams.height = horizontal ? ViewGroup.LayoutParams.WRAP_CONTENT : ViewGroup.LayoutParams.MATCH_PARENT;
-        collectParams.weight = 0;
-        collectParams.topMargin = -gap;
-        recyclerParams.width = horizontal ? ViewGroup.LayoutParams.MATCH_PARENT : 0;
-        recyclerParams.height = horizontal ? 0 : ViewGroup.LayoutParams.MATCH_PARENT;
-        recyclerParams.weight = 1;
-        recyclerParams.topMargin = horizontal ? 0 : -gap;
-        mBinding.collect.setPadding(gap, 0, horizontal ? gap : 0, horizontal ? 0 : gap);
-        mBinding.recycler.setPadding(horizontal ? gap : 0, 0, gap, gap);
-        mBinding.collect.setLayoutParams(collectParams);
-        mBinding.recycler.setLayoutParams(recyclerParams);
-        postUpdateGridWidth();
-    }
-
-    private int getCollectWidth() {
-        int width = 0;
-        int space = ResUtil.dp2px(48);
-        int minWidth = ResUtil.dp2px(128);
-        int maxWidth = ResUtil.dp2px(160);
-        for (Site site : mSites) width = Math.max(width, ResUtil.getTextWidth(site.getName(), 14));
-        return Math.max(minWidth, Math.min(width + space, maxWidth));
-    }
-
-    private boolean isHorizontalUi() {
-        return Setting.getSearchUi() == 0;
-    }
-
-    private String getSearchUi() {
-        return getResources().getStringArray(R.array.select_search_ui)[Setting.getSearchUi()];
-    }
-
-    private String getSearchColumn() {
-        return getResources().getStringArray(R.array.select_search_column)[Setting.getSearchColumn()];
-    }
-
-    private void setSearchUi() {
-        int position = mCollectAdapter.getPosition();
-        Setting.putSearchUi((Setting.getSearchUi() + 1) % getResources().getStringArray(R.array.select_search_ui).length);
-        mCollectAdapter.setHorizontal(isHorizontalUi());
-        setCollectLayout();
-        mBinding.collect.post(() -> mBinding.collect.scrollToPosition(position));
-        mBinding.recycler.post(() -> {
-            updateGridWidth();
-            mSearchAdapter.notifyDataSetChanged();
-        });
-        requireActivity().invalidateOptionsMenu();
-    }
-
-    private void setSearchColumn() {
-        int column = Setting.getSearchColumn();
-        int length = getResources().getStringArray(R.array.select_search_column).length;
-        int current = getCount(column);
-        for (int i = 0; i < length; i++) {
-            column = (column + 1) % length;
-            if (getCount(column) != current) break;
-        }
-        Setting.putSearchColumn(column);
-        updateSpanCount();
-        mBinding.recycler.post(() -> mBinding.recycler.scrollToPosition(0));
-        requireActivity().invalidateOptionsMenu();
-    }
-
     private void search() {
         if (mSites.isEmpty()) {
             if (isSiteSearch()) Notify.show(R.string.detail_site_not_searchable);
@@ -301,20 +282,27 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
         mCollectAdapter.setItems(List.of(Collect.all()), () -> mViewModel.searchContent(mSites, getKeyword(), false));
     }
 
-    private int getCount() {
-        return getCount(Setting.getSearchColumn());
+    private void setFixedSearchGrid() {
+        ((GridLayoutManager) (mBinding.recycler.getLayoutManager())).setSpanCount(SEARCH_COLUMN_COUNT);
+        mSearchAdapter.setColumnCount(SEARCH_COLUMN_COUNT);
+        postUpdateGridWidth();
     }
 
-    private int getCount(int column) {
-        if (column > 0) return column;
-        return ResUtil.isLand(requireActivity()) || ResUtil.isPad() ? 3 : 1;
-    }
-
-    private void updateSpanCount() {
-        int count = getCount();
+    private void setSearchView(boolean grid) {
+        int count = grid ? SEARCH_COLUMN_COUNT : 1;
+        App.removeCallbacks(restoreSearchImages);
+        pendingImageStart = RecyclerView.NO_POSITION;
+        pendingImageEnd = RecyclerView.NO_POSITION;
+        imageRestoreScheduled = false;
+        resetLoadedSearchImages();
+        mSearchAdapter.setLoadImages(!grid);
         ((GridLayoutManager) (mBinding.recycler.getLayoutManager())).setSpanCount(count);
         mSearchAdapter.setColumnCount(count);
-        postUpdateGridWidth();
+        mBinding.recycler.post(() -> {
+            updateGridWidth();
+            if (grid) scheduleVisibleSearchImages(SEARCH_FIRST_IMAGE_DELAY);
+        });
+        requireActivity().invalidateOptionsMenu();
     }
 
     private void postUpdateGridWidth() {
@@ -424,15 +412,20 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
 
     @Override
     public void onPrepareMenu(@NonNull Menu menu) {
-        menu.findItem(R.id.action_layout).setTitle(getSearchUi());
-        menu.findItem(R.id.action_column).setTitle(getSearchColumn());
+        MenuItem item = menu.findItem(R.id.action_view);
+        if (item != null && mSearchAdapter != null) item.setIcon(mSearchAdapter.isGridMode() ? R.drawable.ic_action_list : R.drawable.ic_action_grid);
     }
 
     @Override
     public boolean onMenuItemSelected(@NonNull MenuItem menuItem) {
-        if (menuItem.getItemId() == android.R.id.home) requireActivity().getOnBackPressedDispatcher().onBackPressed();
-        if (menuItem.getItemId() == R.id.action_layout) setSearchUi();
-        if (menuItem.getItemId() == R.id.action_column) setSearchColumn();
+        if (menuItem.getItemId() == android.R.id.home) {
+            requireActivity().getOnBackPressedDispatcher().onBackPressed();
+            return true;
+        }
+        if (menuItem.getItemId() == R.id.action_view) {
+            setSearchView(!mSearchAdapter.isGridMode());
+            return true;
+        }
         return true;
     }
 
@@ -452,6 +445,8 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
         pendingActiveSiteKey = "";
         pendingImageStart = RecyclerView.NO_POSITION;
         pendingImageEnd = RecyclerView.NO_POSITION;
+        resetLoadedSearchImages();
+        imageRestoreScheduled = false;
         searchScrolling = false;
         mViewModel.stopSearch();
         SiteHealthStore.flush();
