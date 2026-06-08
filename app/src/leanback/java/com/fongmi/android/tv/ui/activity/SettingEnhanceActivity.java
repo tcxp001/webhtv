@@ -24,7 +24,9 @@ import com.fongmi.android.tv.ui.dialog.ManagePageDialog;
 import com.fongmi.android.tv.ui.dialog.OneKeySyncDialog;
 import com.fongmi.android.tv.ui.dialog.ShellProxyDialog;
 import com.fongmi.android.tv.ui.dialog.SiteHealthDialog;
+import com.fongmi.android.tv.ui.dialog.WebHomeExtensionDialog;
 import com.fongmi.android.tv.utils.Notify;
+import com.fongmi.android.tv.web.ext.WebHomeExtensionRegistry;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 public class SettingEnhanceActivity extends BaseActivity {
@@ -66,6 +68,8 @@ public class SettingEnhanceActivity extends BaseActivity {
         mBinding.debugLog.setOnClickListener(this::setDebugLog);
         mBinding.siteHealthSort.setOnClickListener(view -> SiteHealthDialog.show(this, this::setText));
         mBinding.siteHealthSort.setOnLongClickListener(this::clearSiteHealth);
+        mBinding.webHomeExtension.setOnClickListener(view -> WebHomeExtensionDialog.show(this, this::setText));
+        mBinding.webHomeExtension.setOnLongClickListener(this::clearWebHomeExtension);
         mBinding.managePage.setOnClickListener(view -> ManagePageDialog.show(this));
         mBinding.shellProxy.setOnClickListener(this::setShellProxy);
         mBinding.shellProxyConfig.setOnClickListener(this::setShellProxyConfig);
@@ -84,6 +88,8 @@ public class SettingEnhanceActivity extends BaseActivity {
         mBinding.driveCheckText.setText(getSwitch(Setting.isDriveCheck()));
         mBinding.debugLogText.setText(getSwitch(Setting.isDebugLog()));
         mBinding.siteHealthSortText.setText(getSwitch(Setting.isSiteHealthSort()));
+        WebHomeExtensionRegistry.Snapshot webHomeExtension = WebHomeExtensionRegistry.get().snapshot();
+        mBinding.webHomeExtensionText.setText(getSwitch(Setting.isWebHomeExtension()) + " · " + webHomeExtension.readyCount + "/" + webHomeExtension.installedCount);
         mBinding.managePageText.setText(R.string.manage_page_web);
         int proxyRuleCount = ProxySetting.count();
         mBinding.shellProxyText.setText(getSwitch(Setting.isShellProxy()) + " · " + getString(R.string.setting_proxy_rule_count, proxyRuleCount));
@@ -209,6 +215,12 @@ public class SettingEnhanceActivity extends BaseActivity {
     private boolean clearSiteHealth(View view) {
         SiteHealthStore.clear();
         Notify.show(R.string.site_health_clear_done);
+        return true;
+    }
+
+    private boolean clearWebHomeExtension(View view) {
+        WebHomeExtensionRegistry.get().clear();
+        Notify.show(R.string.web_home_extension_clear_done);
         return true;
     }
 
