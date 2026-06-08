@@ -378,6 +378,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.detailControlHost.setVisibility(View.GONE);
         binding.flagContainer.removeAllViews();
         binding.seasonContainer.removeAllViews();
+        if (episodeAdapter != null) episodeAdapter.setFallbackStillUrl(getPicText());
         episodeAdapter.setItems(List.of(), Map.of(), null);
         if (episodePhotoAdapter != null) episodePhotoAdapter.setItems(List.of());
         castAdapter.setItems(new ArrayList<>());
@@ -1549,7 +1550,20 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             ImgUtil.load(vod.getName(), backdrop, binding.backdropFill);
             ImgUtil.load(vod.getName(), backdrop, binding.backdrop, false);
         }
+        episodeAdapter.setFallbackStillUrl(episodeFallbackStillUrl());
         ImgUtil.load(vod.getName(), vod.getPic(), binding.poster);
+    }
+
+    private String episodeFallbackStillUrl() {
+        String backdrop = matchedTmdbItem != null ? matchedTmdbItem.getBackdropUrl() : "";
+        if (TextUtils.isEmpty(backdrop) && matchedTmdbDetail != null) {
+            backdrop = tmdbService.image(tmdbConfig.getBackdropBase(), string(matchedTmdbDetail, "backdrop_path"));
+        }
+        if (!TextUtils.isEmpty(backdrop)) return backdrop;
+        String poster = matchedTmdbItem != null ? matchedTmdbItem.getPosterUrl() : "";
+        if (!TextUtils.isEmpty(poster)) return poster;
+        if (vod != null && !TextUtils.isEmpty(vod.getPic())) return vod.getPic();
+        return getPicText();
     }
 
     private void bindHeader() {

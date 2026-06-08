@@ -44,6 +44,7 @@ public class TmdbEpisodeAdapter extends RecyclerView.Adapter<TmdbEpisodeAdapter.
     private boolean light;
     private boolean compactPlain;
     private int activeStrokeColor = 0xFF2CC56F;
+    private String fallbackStillUrl = "";
 
     public TmdbEpisodeAdapter(Listener listener) {
         this.listener = listener;
@@ -80,6 +81,11 @@ public class TmdbEpisodeAdapter extends RecyclerView.Adapter<TmdbEpisodeAdapter.
         notifyDataSetChanged();
     }
 
+    public void setFallbackStillUrl(String fallbackStillUrl) {
+        this.fallbackStillUrl = TextUtils.isEmpty(fallbackStillUrl) ? "" : fallbackStillUrl;
+        notifyDataSetChanged();
+    }
+
     public void setMode(Mode mode) {
         this.mode = mode == null ? Mode.LIST : mode;
         notifyDataSetChanged();
@@ -106,7 +112,9 @@ public class TmdbEpisodeAdapter extends RecyclerView.Adapter<TmdbEpisodeAdapter.
         String overview = tmdbEpisode != null ? tmdbEpisode.getOverview() : episode.getDesc();
         boolean activated = episode.equals(selected);
         boolean compact = compactPlain && tmdbEpisode == null && TextUtils.isEmpty(overview);
-        boolean hasStill = mode == Mode.LIST && tmdbEpisode != null && !TextUtils.isEmpty(tmdbEpisode.getStillUrl());
+        String stillUrl = tmdbEpisode != null ? tmdbEpisode.getStillUrl() : "";
+        String imageUrl = !TextUtils.isEmpty(stillUrl) ? stillUrl : (mode == Mode.GRID ? fallbackStillUrl : "");
+        boolean hasImage = !TextUtils.isEmpty(imageUrl);
 
         applyCardSize(holder, compact);
         if (mode == Mode.GRID) {
@@ -131,26 +139,26 @@ public class TmdbEpisodeAdapter extends RecyclerView.Adapter<TmdbEpisodeAdapter.
             holder.binding.overview.setText(overview);
             holder.binding.overview.setVisibility(TextUtils.isEmpty(overview) ? View.GONE : View.VISIBLE);
         }
-        holder.binding.index.setTextColor(hasStill || !light ? 0xFFFFFFFF : 0xFF15202B);
-        holder.binding.title.setTextColor(hasStill || !light ? 0xE6FFFFFF : 0xCC15202B);
-        holder.binding.date.setTextColor(hasStill || !light ? 0xCCFFFFFF : 0x9915202B);
-        holder.binding.overview.setTextColor(hasStill || !light ? 0xE6FFFFFF : 0xB315202B);
+        holder.binding.index.setTextColor(hasImage || !light ? 0xFFFFFFFF : 0xFF15202B);
+        holder.binding.title.setTextColor(hasImage || !light ? 0xE6FFFFFF : 0xCC15202B);
+        holder.binding.date.setTextColor(hasImage || !light ? 0xCCFFFFFF : 0x9915202B);
+        holder.binding.overview.setTextColor(hasImage || !light ? 0xE6FFFFFF : 0xB315202B);
         holder.binding.badge.setText(episodeBadge(tmdbEpisode));
         holder.binding.badge.setVisibility(TextUtils.isEmpty(holder.binding.badge.getText()) ? View.GONE : View.VISIBLE);
-        applyBadgeStyle(holder.binding.date, hasStill);
-        applyBadgeStyle(holder.binding.badge, hasStill);
+        applyBadgeStyle(holder.binding.date, hasImage);
+        applyBadgeStyle(holder.binding.badge, hasImage);
         TmdbCardFocusHelper.bind(
                 holder.binding.getRoot(),
                 activated ? (light ? 0xFFE5F7EC : 0x6630A86B) : (light ? 0xEEFFFFFF : 0xCC16202A),
                 activated ? activeStrokeColor : (light ? 0x33647480 : 0x33FFFFFF),
                 activated ? 2 : 1);
-        if (hasStill) {
+        if (hasImage) {
             holder.binding.stillFrame.setVisibility(View.VISIBLE);
-            ImgUtil.load(title, tmdbEpisode.getStillUrl(), holder.binding.still);
+            ImgUtil.load(title, imageUrl, holder.binding.still);
         } else {
             holder.binding.stillFrame.setVisibility(View.GONE);
         }
-        holder.binding.scrim.setVisibility(hasStill ? View.VISIBLE : View.GONE);
+        holder.binding.scrim.setVisibility(hasImage ? View.VISIBLE : View.GONE);
         holder.binding.getRoot().setOnClickListener(view -> listener.onItemClick(episode));
         holder.binding.getRoot().setOnLongClickListener(view -> {
             listener.onItemLongClick(episode, episodeNumber);
@@ -162,7 +170,7 @@ public class TmdbEpisodeAdapter extends RecyclerView.Adapter<TmdbEpisodeAdapter.
         ViewGroup.LayoutParams params = holder.binding.getRoot().getLayoutParams();
         if (mode == Mode.GRID) {
             params.width = ViewGroup.LayoutParams.MATCH_PARENT;
-            params.height = dp(holder.itemView, 86);
+            params.height = dp(holder.itemView, 118);
         } else {
             params.width = compact ? dp(holder.itemView, 220) : listCardWidth(holder.itemView);
             params.height = dp(holder.itemView, compact ? 78 : (isPhoneWidth(holder.itemView) ? 172 : 190));
